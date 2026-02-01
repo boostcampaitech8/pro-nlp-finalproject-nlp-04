@@ -1,0 +1,9 @@
+# UV 관련 파일 및 폴더
+.venv/
+__pycache__/
+*.pyc
+.python-version
+uv.lock
+
+# 개발 관련 파일 및 폴더
+.env
