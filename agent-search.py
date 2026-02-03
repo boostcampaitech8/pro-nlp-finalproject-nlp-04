@@ -34,17 +34,18 @@ class StructuredSearchOutput(BaseModel):
     query: str
     results: List[SearchItem]
 
-class AgentState(TypedDict):
+class AgentState(BaseModel):
     is_analysis_need: bool = Field(default=True)
-    question: str
-    search_queries: List[str]
-    search_results: List[SearchItem]
+    question: str = Field(default="")
+    search_queries: List[str] = Field(default_factory=list)
+    search_results: List[SearchItem] = Field(default_factory=list)
+    analysis_result: str = Field(default="")
 
 def generate_queries(state: AgentState):
     """
     Pydantic과 Structured Output을 사용하여 구조화된 검색 쿼리를 생성.
     """
-    question = state["question"]
+    question = state.question
     print(f"\n--- [Node: Query Generator] 분석 중: {question} ---")
     
     prompt = ChatPromptTemplate.from_messages([
@@ -62,14 +63,14 @@ def generate_queries(state: AgentState):
     
     return {"search_queries": result.queries}
 
-def search_with_tavily(state:AgentState):
+def search_with_tavily(state: AgentState):
     """
     Docstring for search_with_tavily
     
     :param state: Description
     :type state: AgentState
     """
-    queries = state['search_queries']
+    queries = state.search_queries
     search = TavilySearch(
         max_results=3,
         search_depth="advanced"
@@ -94,14 +95,56 @@ def search_with_tavily(state:AgentState):
 
     return {"search_results": search_results}
 
+def analysis_search_results(state: AgentState):
+    """
+    Docstring for analysis_search_results
+    
+    :param state: Description
+    :type state: AgentState
+    """
+    question = state.question
+    search_results = state.search_results
+    print(f"\n--- [Node: Search Results Analyst] 분석 중: {question} ---")
+
+    summary = ""
+    results_top5 = sorted(search_results, key=lambda x: x.score)[-5:]
+    for result in results_top5:
+        summary += f"### {result.title}\n\n{result.content}\n\n\n"
+    
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """당신은 분석 전문가입니다.
+        주어진 사용자의 질문 또는 요청을 바탕으로 검색 결과를 분석하여
+        질문 또는 요청에 대해 적절한 참고용 분석 자료를 작성하세요."""),
+        ("human", "{question}"),
+        ("human", "## 검색 결과\n{summary}")
+    ])
+
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1)
+
+    query_chain = prompt | llm
+    analysis_result = query_chain.invoke({"question": question, "summary": summary})
+
+    return {"analysis_result": analysis_result}
+
+def check_analyst(state: AgentState):
+    if state.is_analysis_need == True:
+        return "analysis"
+    else:
+        return END
+
 workflow = StateGraph(AgentState)
 
 workflow.add_node("query_gen", generate_queries)
 workflow.add_node("search", search_with_tavily)
+workflow.add_node("analysis", analysis_search_results)
 
 workflow.add_edge(START, "query_gen")
 workflow.add_edge("query_gen", "search")
-workflow.add_edge("search", END)
+workflow.add_conditional_edges(
+    "search",
+    path=check_analyst,
+    path_map={"analysis": "analysis", END: END})
+workflow.add_edge("analysis", END)
 
 app = workflow.compile()
 
@@ -111,10 +154,13 @@ if __name__ == '__main__':
 
     output = app.invoke(inputs, config)
 
-    print("\n--- [쿼리 생성 결과] ---")
-    for i, q in enumerate(output["search_queries"], 1):
-        print(f"{i}. {q}")
+    # print("\n--- [쿼리 생성 결과] ---")
+    # for i, q in enumerate(output["search_queries"], 1):
+    #     print(f"{i}. {q}")
 
-    print("\n--- [검색 결과] ---")
-    for i, r in enumerate(output["search_results"], 1):
-        print(f"{i}. {r}")
+    # print("\n--- [검색 결과] ---")
+    # for i, r in enumerate(output["search_results"], 1):
+    #     print(f"{i}. {r}")
+
+    # print("\n--- [분석 결과] ---")
+    # print(output["analysis_result"])
