@@ -6,6 +6,7 @@ from typing import Any, Dict, TypedDict
 
 from models.llm import chat
 from agents.plan.visual.schemas import Decision, VisualMeta
+from agents.plan.orchestrator.logger import get_logger, LogLevel
 
 
 class RouterState(TypedDict, total=False):
@@ -120,11 +121,31 @@ def generate_visual_meta(state: RouterState) -> RouterState:
         "image_gen": "(이미지 생성 후 삽입)"
     }
     
+    # LLM이 리스트를 반환할 수 있으므로 문자열로 안전하게 변환
+    def ensure_str(field_name: str, value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            logger = get_logger()
+            logger.log(
+                LogLevel.WARNING,
+                "llm_type_mismatch",
+                f"LLM이 '{field_name}' 필드에 리스트를 반환함 (문자열 기대)",
+                {
+                    "section_title": title,
+                    "field_name": field_name,
+                    "original_value": value,
+                    "converted_value": ", ".join(str(v) for v in value)
+                }
+            )
+            return ", ".join(str(v) for v in value)
+        return str(value)
+    
     visual_meta = VisualMeta(
         visual_type=visual_type,
-        purpose=meta_data.get("purpose", ""),
-        why_this_format=meta_data.get("why_this_format", ""),
-        data_source=meta_data.get("data_source", ""),
+        purpose=ensure_str("purpose", meta_data.get("purpose", "")),
+        why_this_format=ensure_str("why_this_format", meta_data.get("why_this_format", "")),
+        data_source=ensure_str("data_source", meta_data.get("data_source", "")),
         placeholder=placeholder_map.get(visual_type, "(시각화 삽입 예정)")
     )
     
