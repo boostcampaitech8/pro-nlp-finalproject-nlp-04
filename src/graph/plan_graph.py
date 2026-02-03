@@ -3,7 +3,7 @@ Plan 서브그래프 - Blueprint 기반 기획서 생성 파이프라인 연결
 """
 from langgraph.graph import StateGraph, END
 from state.base import GlobalState
-from agents.plan import run_plan
+from agents.plan.orchestrator.pipeline import run_plan
 
 
 def plan_generate(state: GlobalState) -> GlobalState:
