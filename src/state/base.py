@@ -1,4 +1,4 @@
-from typing import Annotated, TypedDict, List
+from typing import Annotated, TypedDict, List, Dict, Any, Optional
 from langgraph.graph.message import add_messages
 
 
@@ -6,12 +6,15 @@ class IdeaState(TypedDict):
     planning_style: Annotated[str, 'Planning Style']
     rationale: Annotated[str, 'Rationale']
     toc: Annotated[List[str], 'Table of Contents']
+    target_sections: Annotated[List[str], 'Target Section']
+    required_data_points: Annotated[Optional[List[Dict[str, Any]]], 'Required Data Points']
     
 
 class SupervisionState(TypedDict):
     stage: Annotated[str, 'Stage']
     user_intent: Annotated[str, 'User Intent']
     last_decision: Annotated[str, 'Last Decision']
+    blueprint: Annotated[Optional[List[Dict[str, Any]]], 'Blueprint Items']
 
 
 class GlobalState(TypedDict):
