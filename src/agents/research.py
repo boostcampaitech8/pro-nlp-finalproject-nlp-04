@@ -1,10 +1,14 @@
 from state.base import GlobalState
 from state.research import ResearchState, SearchQueries, SearchItem
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_upstage import ChatUpstage
 from langchain_tavily import TavilySearch
+from config.config import UPSTAGE_API_KEY
 
-MODEL_NAME = "gemini-3-pro-preview"
+# MODEL_NAME = "gemini-3-pro-preview"
+MODEL_NAME_PRO = "solar-pro2"
+MODEL_NAME_MINI = "solar-mini"
 
 def research_generate(state: GlobalState) -> GlobalState:
     # 생성
@@ -32,7 +36,7 @@ def generate_queries(state: ResearchState):
         ("human", "{question}")
     ])
     
-    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1)
+    llm = ChatUpstage(model=MODEL_NAME_MINI, temperature=0.1, api_key=UPSTAGE_API_KEY)
     structured_llm = llm.with_structured_output(SearchQueries)
     
     query_chain = prompt | structured_llm
@@ -96,7 +100,7 @@ def analysis_search_results(state: ResearchState):
         ("human", "## 검색 결과\n{summary}")
     ])
 
-    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.1)
+    llm = ChatUpstage(model=MODEL_NAME_PRO, temperature=0.1, api_key=UPSTAGE_API_KEY)
 
     query_chain = prompt | llm
     analysis_result = query_chain.invoke({"question": question, "summary": summary})
