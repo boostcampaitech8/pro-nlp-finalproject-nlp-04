@@ -14,3 +14,14 @@ def get_llm(
     max_tokens=max_tokens,
     reasoning_effort=reasoning_effort
 )
+
+def get_mini_llm(
+    temperature: float = 0.7, 
+    max_tokens: int = 16384
+):
+    return ChatUpstage(
+    api_key=API_KEY,
+    model="upstage/solar-1-mini-chat",
+    temperature=temperature,
+    max_tokens=max_tokens
+)
