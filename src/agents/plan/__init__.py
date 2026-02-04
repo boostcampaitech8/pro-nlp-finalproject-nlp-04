@@ -49,9 +49,8 @@ from agents.plan.generator import (
     compose_plan_markdown,
 )
 
-from agents.plan.orchestrator.pipeline import (
+from agents.plan.run import (
     run_plan,
-    build_plan_pipeline,
 )
 
 __all__ = [
@@ -72,5 +71,4 @@ __all__ = [
     "compose_plan_markdown",
     # 파이프라인
     "run_plan",
-    "build_plan_pipeline",
 ]

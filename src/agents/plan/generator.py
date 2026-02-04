@@ -15,7 +15,7 @@ from agents.plan.schemas import (
     BlueprintItem,
     StructuredInput,
 )
-from agents.plan.visual.schemas import VisualMeta, VisualArtifact
+# from agents.plan.visual.schemas import VisualMeta, VisualArtifact
 
 
 # ===========================
@@ -108,12 +108,13 @@ def generate_section_from_blueprint(
 
 def compose_plan_markdown(
     plan: GeneratedPlan,
-    visual_artifacts: List[VisualArtifact] = None
+    visual_artifacts: List["VisualArtifact"] = None
 ) -> str:
     """
     생성된 기획서를 마크다운 문서로 조합합니다.
     시각화 결과물이 있으면 해당 섹션에 포함합니다.
     """
+    from agents.plan.visual.schemas import VisualArtifact
     visual_artifacts = visual_artifacts or []
     visual_by_section = {v.section_number: v for v in visual_artifacts}
     
@@ -173,7 +174,7 @@ def compose_plan_markdown(
     return "\n".join(md_parts)
 
 
-def _format_visual_block(visual: VisualArtifact) -> str:
+def _format_visual_block(visual: "VisualArtifact") -> str:
     """시각화 블록을 마크다운으로 포맷"""
     meta = visual.meta
     lines = []
