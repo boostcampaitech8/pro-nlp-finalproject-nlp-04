@@ -11,3 +11,7 @@ wheels/
 
 # 개발 관련 파일 및 폴더
 .env
+
+# Output and logs of plan agent
+output/
+logs/
