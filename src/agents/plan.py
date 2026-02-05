@@ -27,7 +27,7 @@ def plan_generate(state: GlobalState) -> GlobalState:
     
     # 2. 전제조건 확인 (Blueprint가 있어야 함)
     # PlanState에 있거나, IdeaState에 있는 blueprint를 확인
-    blueprint = plan_data.get("blueprint") or state.get("idea", {}).get("blueprint")
+    blueprint = state.get("idea", {}).get("blueprint")
     
     if not blueprint:
         print("[plan_generate] Blueprint가 없습니다. 생성을 건너뜁니다.")
