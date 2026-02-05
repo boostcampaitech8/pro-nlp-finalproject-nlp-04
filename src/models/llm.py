@@ -4,7 +4,7 @@ from langchain_upstage import ChatUpstage
 def get_llm(
     model: str = "solar-pro2",
     temperature: float = 0.7,
-    max_tokens: int = 8192,
+    max_tokens: int = 65536,
     reasoning_effort: str = "medium"
 ):
     return ChatUpstage(

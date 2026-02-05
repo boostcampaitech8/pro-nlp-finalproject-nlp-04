@@ -36,7 +36,7 @@ def main():
 
 def run_from_file(file_path: str):
     """Blueprint 파일로 파이프라인 실행"""
-    from agents.plan.orchestrator.pipeline import run_plan
+    from agents.plan.run import run_plan
 
     blueprint_path = Path(file_path)
     if not blueprint_path.exists():
@@ -59,7 +59,7 @@ def run_from_file(file_path: str):
 
 def run_test():
     """테스트 실행"""
-    from agents.plan.orchestrator.pipeline import run_plan
+    from agents.plan.run import run_plan
 
     print("=" * 60)
     print("기획서 생성 파이프라인 테스트 실행")
