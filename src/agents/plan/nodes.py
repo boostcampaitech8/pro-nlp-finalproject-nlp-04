@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Dict, Any
 from datetime import datetime
 from pathlib import Path
+from tqdm import tqdm
+
+_pbar = None
 
 from agents.plan.schemas import (
     StructuredIdea, TableOfContents, TableOfContentsItem, 
@@ -16,7 +19,7 @@ from agents.plan.generator import (
 )
 from agents.plan.visual.schemas import Decision, VisualMeta, VisualArtifact
 from agents.plan.visual.router import decide_node, generate_visual_meta, route_next
-from agents.plan.visual.generator import render_table, render_diagram, image_search, image_gen, create_visual_artifact
+from agents.plan.visual.generator import render_table, render_diagram, render_chart, image_search, image_gen, create_visual_artifact
 from agents.plan.visual.validator import validate_and_decide_retry
 from state.plan import PlanPipelineState, SectionProcessState
 from agents.plan.logger import get_logger, LogLevel
@@ -30,6 +33,12 @@ def parse_input_node(state: PlanPipelineState) -> PlanPipelineState:
     """외부 에이전트 입력을 파싱하여 state에 저장"""
     print("[Pipeline] 구조화된 입력 파싱 중...")
     structured_input = state["structured_input"]
+    
+    # tqdm 초기화
+    global _pbar
+    total_sections = len(structured_input.get("blueprint", []))
+    if total_sections > 0:
+        _pbar = tqdm(total=total_sections, desc="기획서 생성 진행율", unit="section")
     
     # toc 변환 (문자열 목록 -> TableOfContents)
     toc_items = []
@@ -61,7 +70,15 @@ def generate_section_node(state: PlanPipelineState) -> PlanPipelineState:
     current_index = state["current_section_index"]
     blueprint_item = structured_input.blueprint[current_index]
     
-    print(f"  [{current_index+1}/{len(structured_input.blueprint)}] {blueprint_item.title}")
+    # tqdm 업데이트 (입력 표시)
+    global _pbar
+    if _pbar:
+        _pbar.set_description(f"작성 중: {blueprint_item.title}")
+        guideline_text = (blueprint_item.guideline[:100] + "...") if blueprint_item.guideline and len(blueprint_item.guideline) > 100 else (blueprint_item.guideline or "없음")
+        tqdm.write(f"\n[입력] 섹션 {current_index+1}: {blueprint_item.title} (가이드라인: {guideline_text})")
+    else:
+        print(f"  [{current_index+1}/{len(structured_input.blueprint)}] {blueprint_item.title}")
+        
     logger.log_section_generation(str(current_index + 1), blueprint_item.title, "blueprint")
     
     previous_sections = [PlanSection(**s) for s in state["sections"]]
@@ -72,6 +89,12 @@ def generate_section_node(state: PlanPipelineState) -> PlanPipelineState:
         section_index=current_index,
         previous_sections=previous_sections
     )
+    
+    # tqdm 업데이트 (출력 요약 표시)
+    if _pbar:
+        content_snippet = section.content[:50].replace("\n", " ") + "..."
+        tqdm.write(f"[출력] {content_snippet}")
+        _pbar.set_postfix(last_output=section.title)
     
     state["sections"].append(section.model_dump())
     
@@ -119,12 +142,16 @@ def visual_generate_node(state: PlanPipelineState) -> PlanPipelineState:
     error = None
     
     try:
-        if decision.needs_table:
-            visual_type = "table"
-            visual_state = render_table(visual_state)
+        # 우선순위: 차트(가장 중요) > 다이어그램 > 표
+        if decision.needs_chart:
+            visual_type = "chart"
+            visual_state = render_chart(visual_state)
         elif decision.needs_diagram:
             visual_type = "diagram"
             visual_state = render_diagram(visual_state)
+        elif decision.needs_table:
+            visual_type = "table"
+            visual_state = render_table(visual_state)
         elif decision.needs_image_search:
             visual_type = "image_search"
             visual_state = image_search(visual_state)
@@ -211,22 +238,22 @@ def route_visual_validation(state: PlanPipelineState) -> str:
 def increment_section_index_node(state: PlanPipelineState) -> PlanPipelineState:
     """섹션 인덱스 증가 노드"""
     state["current_section_index"] = state.get("current_section_index", 0) + 1
+    
+    # 진행률 업데이트
+    global _pbar
+    if _pbar:
+        _pbar.update(1)
+        
     return state
 
 
 def check_needs_visual(state: PlanPipelineState) -> str:
-    """시각화가 필요한지 확인"""
-    visual_state = state.get("current_visual_state", {})
-    decision = visual_state.get("decision", {})
+    """시각화 필요 여부 확인"""
+    visual_state = state["current_visual_state"]
+    decision = Decision(**visual_state.get("decision", {}))
     
-    needs_visual = any([
-        decision.get("needs_table"),
-        decision.get("needs_diagram"),
-        decision.get("needs_image_search"),
-        decision.get("needs_image_gen")
-    ])
-    
-    if needs_visual:
+    if any([decision.needs_table, decision.needs_diagram, decision.needs_chart, 
+            decision.needs_image_search, decision.needs_image_gen]):
         return "visual_generate"
     return "next_section"
 
@@ -248,6 +275,12 @@ def route_next_section(state: PlanPipelineState) -> str:
 def compose_output_node(state: PlanPipelineState) -> PlanPipelineState:
     """최종 마크다운 조합"""
     print("[Pipeline] 최종 마크다운 생성 중...")
+    
+    # 진행률 종료
+    global _pbar
+    if _pbar:
+        _pbar.close()
+        _pbar = None
     
     structured_input = StructuredInput(**state["structured_input"])
     toc = TableOfContents(**state["toc"])
@@ -280,8 +313,11 @@ def compose_output_node(state: PlanPipelineState) -> PlanPipelineState:
 
 def save_output_node(state: PlanPipelineState) -> PlanPipelineState:
     """파일 저장"""
-    output_dir = Path("output")
+    # 프로젝트 루트 경로 찾기 (src의 상위 디렉토리)
+    project_root = Path(__file__).parent.parent.parent.parent
+    output_dir = project_root / "output"
     output_dir.mkdir(exist_ok=True)
+
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"plan_blueprint_{timestamp}.md"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Dict, Any
 from pydantic import BaseModel, Field
 
-from models.llm import chat
+from models.llm import get_llm
 from agents.plan.visual.schemas import VisualMeta
 
 
@@ -45,7 +45,8 @@ def validate_visual(
             reason="이미지 검색/생성은 placeholder 상태이므로 검증 생략"
         )
     
-    # 표/다이어그램의 경우 LLM으로 검증
+    # 표/다이어그램/차트의 경우 LLM으로 검증.
+    chat = get_llm(reasoning_effort="low")
     structured_llm = chat.with_structured_output(ValidationResult)
     
     prompt = f"""
@@ -61,16 +62,19 @@ def validate_visual(
     형식 선택 이유: {meta.why_this_format}
     
     [생성된 콘텐츠]
-    {generated_content or "(콘텐츠 없음)"}
+    {generated_content or f"(이미지 파일 저장됨: {meta.image_path})" if meta.visual_type == "chart" else "(콘텐츠 없음)"}
     
     [판단 기준]
     1. 시각화 내용이 섹션 내용을 잘 반영하는가?
     2. 시각화 형식이 내용 전달에 적합한가?
     3. 데이터가 정확하고 일관성 있는가?
+    4. **기술적 검증**:
+        - Diagram: Mermaid 문법 오류 확인.
+        - Chart: 내용상 수치 데이터가 적절히 시각화되었는지 (데이터 출처의 타당성) 확인.
     
     점수 기준:
     - 0.8 이상: 적합 (is_valid=True)
-    - 0.8 미만: 부적합 (is_valid=False), 개선 제안 필요
+    - 0.8 미만: 부적합 (is_valid=False), 반드시 'suggestion'에 구체적인 수정 사항을 포함하세요.
     """
     
     try:
