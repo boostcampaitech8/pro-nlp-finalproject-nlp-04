@@ -1,4 +1,3 @@
-from state.base import GlobalState
 from graph.supervisor_graph import supervisor_app
 
 
@@ -13,17 +12,17 @@ initial_state = {
         "planning_style": "",
         "rationale": "",
         "toc": [],
+        "blueprint": [],
+        "last_decision": "",
+        "messages": "",
     },
     "supervision": {
-        "stage": "init",
-        "user_intent": "",
         "last_decision": "",
     },
 }
 
 while True:
     state = supervisor_app.invoke(initial_state)
-    print(state)
     
     if state.get("awaiting_input"):
         print(state["input_request"])

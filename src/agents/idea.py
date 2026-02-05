@@ -68,7 +68,7 @@ def creator_node(state: InternalState):
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
     context_info = f"""
-    blueprint: {state.get('blueprint') or []}
+    blueprint: {state['idea'].get('blueprint') or []}
     """
 
     response = llm.invoke([
@@ -79,12 +79,14 @@ def creator_node(state: InternalState):
     result = json.loads(response.content)
     
     return {
-        "idea": {**state['idea'], 
-                 "planning_style": result['planning_style'], 
-                 "rationale": result['rationale']
-                 },
+        "idea":
+            {   
+                **state['idea'],
+                "planning_style": result['planning_style'], 
+                "rationale": result['rationale'],
+                "blueprint": result['blueprint'],   
+            },
         "target_sections": None,
-        "blueprint": result['blueprint']
     }
     
 def updater_node(state: InternalState):
@@ -94,7 +96,7 @@ def updater_node(state: InternalState):
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
     context_info = f"""
-    blueprint: {state.get('blueprint')}
+    blueprint: {state['idea'].get('blueprint')}
     required_data_points : {state.get('required_data_points', '')}
     target_sections: {state.get('target_sections')}
     """
@@ -107,9 +109,12 @@ def updater_node(state: InternalState):
     result = json.loads(response.content)
     
     return {
+        "idea":{
+            **state['idea'],
+            "blueprint": result['blueprint']
+        },
         "target_sections": None,
         "required_data_points": None,
-        "blueprint": result['blueprint']
     }
 
 def questioner_node(state: InternalState):
@@ -122,19 +127,25 @@ def questioner_node(state: InternalState):
         # AI가 유저에게 다시 물어보는 프롬프트 생성
         response = llm.invoke(f"유저의 입력 '{state['user_input']}'이 모호합니다. 어떤 섹션을 수정하고 싶은지, 혹은 무엇을 도와드리면 될지 친절하게 되물어주세요.")
         return {
-            "messages": [response],
-            "supervision": {**state["supervision"], "last_decision": "WAIT_FOR_USER"}
+            "idea": {
+                **state["idea"], 
+                "last_decision": "WAIT_FOR_USER", 
+                "messages": [response]
+            }
         }
     
     
-    blueprint = state.get('blueprint')
+    blueprint = state['idea'].get('blueprint')
     not_completed_count = len([s for s in blueprint if s['is_required_from_user']])
 
     if not_completed_count == 0:
         # 더 이상 물어볼 게 없다면는 경우
         return {
-            "messages": [AIMessage(content="모든 기획 섹션이 완료되었습니다! 최종 검토를 시작합니다.")],
-            "supervision": {**state['supervision'], "internal_user_intent": "CONFIRM"} 
+            "idea": {
+                **state["idea"],
+                "messages": [AIMessage(content="모든 기획 섹션이 완료되었습니다! 최종 검토를 시작합니다.")],
+            },
+            "internal_user_intent": "CONFIRM"
         }
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
@@ -150,20 +161,22 @@ def questioner_node(state: InternalState):
     question_content = response.content
     
     return {
-        "messages": [response],
+        "idea":{
+            **state['idea'],
+            "messages": [response],
+        },
         "required_data_points": question_content
-        
     }
 
 def evaluator_node(state: InternalState):
     # 검수 로직  
-    blueprint = state['supervision'].get('blueprint', [])
+    blueprint = state['idea'].get('blueprint', [])
     is_valid = True # 검증 로직 결과
     
     if not is_valid:
         return {
-            "supervision": {
-                **state['supervision'],
+            "idea": {
+                **state['idea'],
                 "last_decision": "REJECTED", 
             }
         }
@@ -174,16 +187,15 @@ def evaluator_node(state: InternalState):
     if not remaining_questions:
         # 모든 데이터가 수집됨
         decision = "COMPLETE"
-        state["idea"]["toc"] = [section.get('title') for section in state["supervision"]["blueprint"]]
+        state["idea"]["toc"] = [section.get('title') for section in blueprint]
     else:
         # 유저의 추가 입력이 필요함
         decision = "WAIT_FOR_USER"
-
     return {
-        "blueprint": state["blueprint"],
-        "idea": state["idea"],
-        "messages": state["messages"],
-        "last_decision": decision
+        "idea":{
+            **state['idea'],
+            "last_decision": decision
+        }
     }
 
 def idea_eval_router(state: InternalState) -> str:
