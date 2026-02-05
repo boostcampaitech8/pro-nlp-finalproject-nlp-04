@@ -12,6 +12,9 @@ initial_state = {
         "planning_style": "",
         "rationale": "",
         "toc": [],
+        "blueprint": [],
+        "last_decision": "",
+        "messages": "",
     },
     "supervision": {
         "last_decision": "",
