@@ -6,7 +6,7 @@ from typing import Any, Dict, TypedDict
 
 from models.llm import chat
 from agents.plan.visual.schemas import Decision, VisualMeta
-from agents.plan.orchestrator.logger import get_logger, LogLevel
+from agents.plan.logger import get_logger, LogLevel
 
 
 class RouterState(TypedDict, total=False):
