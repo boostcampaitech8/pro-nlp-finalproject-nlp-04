@@ -25,3 +25,7 @@ class GlobalState(TypedDict):
     current_task: Annotated[str | None, 'Current Task']
     idea: IdeaState
     supervision: SupervisionState
+    
+    # Plan 파이프라인 연결용 (선택적)
+    blueprint: Annotated[Optional[List[Dict[str, Any]]], 'Blueprint Items']
+    plan_output: Annotated[Optional[Dict[str, Any]], 'Plan Pipeline Output']
