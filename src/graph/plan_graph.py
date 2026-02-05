@@ -90,46 +90,6 @@ plan_pipeline = build_plan_pipeline()
 
 
 # ===========================
-# Helper: Run Pipeline (Logic extracted from run_plan)
-# ===========================
-def invoke_plan_pipeline(structured_input_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Blueprint 파이프라인 실행 및 로그 처리 (run_plan의 로직)
-    """
-    # 1. 로거 초기화
-    logger = reset_logger()
-    logger.log_pipeline_start("blueprint", str(structured_input_data.get("planning_style", "")))
-    
-    initial_state: PlanPipelineState = {
-        "structured_input": structured_input_data,
-    }
-    
-    print("=" * 60)
-    print(f"Blueprint 기반 기획서 생성 파이프라인 시작 (Graph 통합)")
-    print(f"스타일: {structured_input_data.get('planning_style')}")
-    print("=" * 60)
-    
-    # 2. 파이프라인 실행 (재귀 제한 증가)
-    result = plan_pipeline.invoke(initial_state, {"recursion_limit": 200})
-    
-    # 3. 종료 로그 및 저장
-    logger.log_pipeline_end(
-        len(result.get("sections", [])),
-        len(result.get("visual_artifacts", [])),
-        result.get("output_path", "")
-    )
-    logger.save_json()
-    
-    print("=" * 60)
-    print("파이프라인 완료!")
-    print(f"출력 파일: {result.get('output_path')}")
-    print("=" * 60)
-    print("\n" + logger.generate_summary())
-    
-    return result
-
-
-# ===========================
 # Global Plan Graph (Wrapper)
 # ===========================
 
