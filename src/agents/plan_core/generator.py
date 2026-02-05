@@ -6,7 +6,7 @@ from typing import List
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from models.llm import get_llm
-from agents.plan.schemas import (
+from agents.plan_core.schemas import (
     StructuredIdea,
     TableOfContents,
     TableOfContentsItem,
@@ -15,7 +15,7 @@ from agents.plan.schemas import (
     BlueprintItem,
     StructuredInput,
 )
-# from agents.plan.visual.schemas import VisualMeta, VisualArtifact
+# from agents.plan_core.visual.schemas import VisualMeta, VisualArtifact
 
 
 # ===========================
@@ -125,7 +125,7 @@ def compose_plan_markdown(
     생성된 기획서를 마크다운 문서로 조합합니다.
     시각화 결과물이 있으면 해당 섹션에 포함합니다.
     """
-    from agents.plan.visual.schemas import VisualArtifact
+    from agents.plan_core.visual.schemas import VisualArtifact
     visual_artifacts = visual_artifacts or []
     visual_by_section = {v.section_number: v for v in visual_artifacts}
     

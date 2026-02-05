@@ -6,7 +6,7 @@ from typing import Dict, Any
 from pydantic import BaseModel, Field
 
 from models.llm import get_llm
-from agents.plan.visual.schemas import VisualMeta
+from agents.plan_core.visual.schemas import VisualMeta
 
 
 class ValidationResult(BaseModel):
