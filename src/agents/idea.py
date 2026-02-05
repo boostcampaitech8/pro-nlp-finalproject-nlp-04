@@ -130,7 +130,7 @@ def questioner_node(state: InternalState):
             "idea": {
                 **state["idea"], 
                 "last_decision": "WAIT_FOR_USER", 
-                "messages": [response]
+                "messages": response.content
             }
         }
     
@@ -143,7 +143,7 @@ def questioner_node(state: InternalState):
         return {
             "idea": {
                 **state["idea"],
-                "messages": [AIMessage(content="모든 기획 섹션이 완료되었습니다! 최종 검토를 시작합니다.")],
+                "messages": "모든 기획 섹션이 완료되었습니다! 최종 검토를 시작합니다.",
             },
             "internal_user_intent": "CONFIRM"
         }
@@ -163,7 +163,7 @@ def questioner_node(state: InternalState):
     return {
         "idea":{
             **state['idea'],
-            "messages": [response],
+            "messages": question_content,
         },
         "required_data_points": question_content
     }
