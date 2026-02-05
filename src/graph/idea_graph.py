@@ -5,12 +5,12 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from langgraph.graph import StateGraph, END
-from state.base import GlobalState
+from state.base import InternalState
 from agents.idea import idea_router, analyzer_node, creator_node, updater_node, questioner_node, evaluator_node
 
 
 # 노드 설정
-idea_graph = StateGraph(GlobalState)
+idea_graph = StateGraph(InternalState)
 idea_graph.add_node("analyzer", analyzer_node)
 idea_graph.add_node("creator", creator_node)
 idea_graph.add_node("updater", updater_node)
