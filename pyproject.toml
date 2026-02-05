@@ -5,7 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "langchain>=1.2.8",
     "langchain-upstage>=0.7.6",
     "langgraph>=1.0.7",
+    "pytest>=9.0.2",
     "python-dotenv>=1.2.1",
+    "plotly>=6.5.2",
+    "pandas>=2.2.3",
+    "kaleido>=0.2.1",
 ]
