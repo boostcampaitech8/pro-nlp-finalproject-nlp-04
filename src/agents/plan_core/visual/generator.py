@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Dict, Any
 
 from models.llm import get_llm
-from agents.plan.visual.schemas import Decision, VisualMeta, VisualArtifact
+from agents.plan_core.visual.schemas import Decision, VisualMeta, VisualArtifact
 
 
 def render_table(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -93,7 +93,7 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
     import pandas as pd
     import os
     from pathlib import Path
-    from agents.plan.visual.schemas import ChartType
+    from agents.plan_core.visual.schemas import ChartType
 
     text = state.get("section_text", "")
     d = Decision(**state.get("decision", {}))
