@@ -1,27 +1,24 @@
 """
-기획서 파이프라인 상태 정의
+기획서 파이프라인 내부 상태 정의
 """
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict, Annotated
+from state.base import GlobalState
 
 
-class PlanPipelineState(TypedDict, total=False):
-    """전체 기획서 파이프라인 상태"""
-    # 시각화 단계
-    visual_artifacts: List[Dict[str, Any]]  # List[VisualArtifact]
-    current_visual_state: Dict[str, Any]  # 현재 처리 중인 시각화 상태
+class PlanInternalState(GlobalState):
+    """기획서 생성 파이프라인 내부 전용 상태 (전역 상태 확장)"""
+    # 내부 가공용 데이터
+    sections: Annotated[List[Dict[str, Any]], "생성된 섹션 리스트 (PlanSection)"]
+    visual_artifacts: Annotated[List[Dict[str, Any]], "생성된 시각화 리스트 (VisualArtifact)"]
+    final_markdown: Annotated[str, "최종 조합된 마크다운 텍스트"]
     
-    # 출력
-    final_markdown: str
-    output_path: str
+    # 진행 제어용
+    current_section_index: Annotated[int, "현재 작성 중인 섹션 인덱스"]
+    temp_visual_state: Annotated[Dict[str, Any], "시각화 처리를 위한 임시 상태"]
     
-    # Blueprint 기반 입력 (필수)
-    structured_input: Dict[str, Any]  # StructuredInput
-    
-    # 내부 처리용
-    toc: Dict[str, Any]  # TableOfContents
-    current_section_index: int
-    sections: List[Dict[str, Any]]  # List[PlanSection]
+    # 출력 경로
+    output_path: Annotated[str, "최종 파일 저장 경로"]
 
 
 class SectionProcessState(TypedDict, total=False):
