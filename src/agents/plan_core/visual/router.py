@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any, Dict, TypedDict
 
 from models.llm import get_llm
-from agents.plan.visual.schemas import Decision, VisualMeta
-from agents.plan.logger import get_logger, LogLevel
+from agents.plan_core.visual.schemas import Decision, VisualMeta
+from agents.plan_core.logger import get_logger, LogLevel
 
 
 class RouterState(TypedDict, total=False):

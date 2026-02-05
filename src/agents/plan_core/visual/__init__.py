@@ -2,7 +2,7 @@
 시각화 에이전트 패키지
 """
 
-from agents.plan.visual.schemas import (
+from agents.plan_core.visual.schemas import (
     Decision,
     VisualMeta,
     VisualArtifact,
@@ -10,13 +10,13 @@ from agents.plan.visual.schemas import (
     DiagramType,
 )
 
-from agents.plan.visual.router import (
+from agents.plan_core.visual.router import (
     decide_node,
     generate_visual_meta,
     route_next,
 )
 
-from agents.plan.visual.generator import (
+from agents.plan_core.visual.generator import (
     render_table,
     render_diagram,
     image_search,
@@ -24,7 +24,7 @@ from agents.plan.visual.generator import (
     create_visual_artifact,
 )
 
-from agents.plan.visual.validator import (
+from agents.plan_core.visual.validator import (
     validate_visual,
     validate_and_decide_retry,
     ValidationResult,
