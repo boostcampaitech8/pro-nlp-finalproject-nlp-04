@@ -8,7 +8,9 @@ dependencies = [
     "langchain-community>=0.4.1",
     "langchain-upstage>=0.7.6",
     "langgraph>=1.0.7",
+    "networkx>=3.6.1",
     "python-dotenv>=1.2.1",
+    "spacy>=3.8.11",
 ]
 
 [dependency-groups]

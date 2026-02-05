@@ -17,9 +17,59 @@ class StructuredSearchOutput(BaseModel):
     query: str
     results: List[SearchItem]
 
+class KGTriple(BaseModel):
+    """KG에서 조회한 트리플"""
+    subject: str
+    relation: str
+    object: str
+    confidence: float
+    source_url: str = ""
+    domain: str = "general"
+
+
+class KGQueryResult(BaseModel):
+    """KG 조회 결과 전체"""
+    queried_entities: List[str] = Field(
+        default_factory=list,
+        description="조회한 엔티티 목록"
+    )
+    found_triplets: List[KGTriple] = Field(
+        default_factory=list,
+        description="발견된 트리플 목록"
+    )
+    summary_text: str = Field(
+        default="",
+        description="사람이 읽을 수 있는 요약"
+    )
+
 class ResearchState(BaseModel):
+    """
+    Research 파이프라인 상태
+    
+    KG 통합 필드:
+        - kg_cached_info: 검색 전 KG 조회 결과 (캐시)
+        - kg_extraction_summary: 트리플 추출 요약
+    """
+    
+    # 기존 필드
     is_analysis_need: bool = Field(default=True)
     question: str = Field(default="")
     search_queries: List[str] = Field(default_factory=list)
     search_results: List[SearchItem] = Field(default_factory=list)
     analysis_result: str = Field(default="")
+    
+    # KG 관련 필드 (추가)
+    kg_query_result: KGQueryResult = Field(
+        default_factory=KGQueryResult,
+        description="구조화된 KG 조회 결과"
+    )
+    kg_cached_info: str = Field(
+        default="",
+        description="(Deprecated) 하위 호환용"
+    )
+    kg_extraction_summary: str = Field(default="")
+    analysis_file_path: str = Field(default="")
+    need_search: bool = Field(
+        default=True,
+        description="Tavily 검색이 필요한지 여부 (KG 정보가 충분하면 False)"
+    )
