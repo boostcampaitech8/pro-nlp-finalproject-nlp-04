@@ -10,7 +10,6 @@ class IdeaState(TypedDict):
     
 
 class PlanState(TypedDict, total=False):
-    blueprint: Annotated[List[Dict[str, Any]], 'Blueprint Items (Input for Plan)']
     sections: Annotated[List[Dict[str, Any]], 'Plan Sections']
     visual_artifacts: Annotated[List[Dict[str, Any]], 'Visual Artifacts']
     final_markdown: Annotated[str, 'Final Markdown']
