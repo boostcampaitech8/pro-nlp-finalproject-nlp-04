@@ -31,5 +31,4 @@ class GlobalState(TypedDict):
     current_task: Annotated[str | None, 'Current Task']
     idea: IdeaState
     plan: PlanState
-    research: ResearchState
     supervision: SupervisionState
