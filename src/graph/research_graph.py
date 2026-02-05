@@ -2,7 +2,7 @@ from langgraph.graph import StateGraph, END
 from state.base import GlobalState
 from state.research import ResearchState
 from agents.research import research_generate, research_evaluate, research_eval_router
-from agents.research import generate_queries, search_with_tavily, analysis_search_results
+from agents.research import generate_queries, search_with_tavily, analysis_search_results, upsert_qdrant
 
 
 # # 노드 설정
@@ -32,12 +32,14 @@ research_graph = StateGraph(ResearchState)
 
 research_graph.add_node("query_gen", generate_queries)
 research_graph.add_node("search", search_with_tavily)
+research_graph.add_node("upsert_qdrant", upsert_qdrant)
 research_graph.add_node("analysis", analysis_search_results)
 
 research_graph.set_entry_point("query_gen")
 research_graph.add_edge("query_gen", "search")
+research_graph.add_edge("search", "upsert_qdrant")
 research_graph.add_conditional_edges(
-    "search",
+    "upsert_qdrant",
     check_analyst,
     {"analysis": "analysis", END: END})
 research_graph.add_edge("analysis", END)
