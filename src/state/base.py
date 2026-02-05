@@ -1,4 +1,4 @@
-from typing import Annotated, TypedDict, List
+from typing import Annotated, TypedDict, List, Dict, Any, Optional
 from langgraph.graph.message import add_messages
 
 
@@ -22,3 +22,7 @@ class GlobalState(TypedDict):
     current_task: Annotated[str | None, 'Current Task']
     idea: IdeaState
     supervision: SupervisionState
+    
+    # Plan 파이프라인 연결용 (선택적)
+    blueprint: Annotated[Optional[List[Dict[str, Any]]], 'Blueprint Items']
+    plan_output: Annotated[Optional[Dict[str, Any]], 'Plan Pipeline Output']

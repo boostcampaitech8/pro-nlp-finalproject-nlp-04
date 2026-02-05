@@ -10,3 +10,7 @@ wheels/
 .venv
 
 .env
+
+# Output and logs of plan agent
+output/
+logs/
