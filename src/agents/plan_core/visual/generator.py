@@ -2,7 +2,8 @@
 시각화 생성 에이전트 - 표, 다이어그램, 이미지 생성/검색
 """
 from __future__ import annotations
-from typing import Dict, Any
+from typing import Dict, Any, List
+from pydantic import BaseModel, Field
 
 from models.llm import get_llm
 from agents.plan_core.visual.schemas import Decision, VisualMeta, VisualArtifact

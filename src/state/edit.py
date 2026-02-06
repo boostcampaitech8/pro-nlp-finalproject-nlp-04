@@ -17,8 +17,13 @@ class EditInternalState(GlobalState):
     # Logic
     match_section_index: Annotated[int, "타겟 섹션의 인덱스"]
     
+    # Granular Edit Fields
+    granularity: Annotated[str, "수정 단위 (section/paragraph/sentence)"]
+    edit_range_start: Annotated[int | None, "수정 시작 라인 인덱스 (Inclusive, 0-based)"]
+    edit_range_end: Annotated[int | None, "수정 끝 라인 인덱스 (Inclusive, 0-based)"]
+
     # Output (Temporary)
-    regenerated_content: Annotated[str, "재생성된 결과"]
+    regenerated_content: Annotated[str, "재생성된 결과 (전체 텍스트 합본)"]
     
     # Evaluation
     critique: Annotated[str | None, "평가 비평"]
