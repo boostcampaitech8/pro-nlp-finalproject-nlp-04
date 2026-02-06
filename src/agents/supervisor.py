@@ -7,16 +7,28 @@ from langchain_core.output_parsers import JsonOutputParser
 def supervisor_node(state: GlobalState) -> GlobalState:
     # 사용자 응답이 있으면, 해당 내용을 메시지에 추가
     if state['awaiting_input'] == True:
-        return {
-            "messages": [
-                HumanMessage(content=state["user_response"])
-            ],
-            'awaiting_input': False,
-            'supervision': {
-                **state['supervision'],
-                'last_decision': 'supervisor_node',
+        if state['supervision']['request_type'] == 'text':
+            return {
+                "messages": [
+                    HumanMessage(content=state["user_response"])
+                ],
+                'awaiting_input': False,
+                'supervision': {
+                    **state['supervision'],
+                    'last_decision': 'supervisor_node',
+                }
             }
-        }
+        elif state['supervision']['request_type'] == 'idea_form':
+            # state["user_response"] 처리 어떻게? (TODO)
+
+            return {
+                'awaiting_input': False,
+                'supervision': {
+                    **state['supervision'],
+                    'last_decision': 'supervisor_node',
+                    'request_type': 'text',
+                }
+            }
 
     # 초기 상태
     if state['supervision']['last_decision'] == '':
@@ -34,14 +46,15 @@ def supervisor_node(state: GlobalState) -> GlobalState:
 
         # 아이디어 에이전트 호출 이후
         if last_decision == 'RUN_IDEA_STRUCTURING':
-            # 유저의 추가 입력이 필요한 경우
+            # 유저의 추가 입력이 필요한 경우 (질문지 처리 필요)
             if state['idea']['last_decision'] == 'WAIT_FOR_USER':
                 return {
                     'supervision': {
                         **state['supervision'],
                         'last_decision': 'ASK_USER',
                         'current_task': 'idea_structuring',
-                        'pending_request': state['idea']['messages'],
+                        'pending_request': state['idea']['form'],
+                        'request_type': 'idea_form',
                     }
             }
             # 아이디어 에이전트 컨펌
@@ -91,17 +104,27 @@ def supervisor_node(state: GlobalState) -> GlobalState:
 def ask_user(state: GlobalState) -> GlobalState:
     # 에이전트가 사용자에게 전달할 내용이 있을 시
     if state['supervision']['pending_request']:
-        return {
-            'supervision': {
-                **state['supervision'],
-                'pending_request': None,
-            },
-            "messages": [
-                AIMessage(content=state['supervision']['pending_request'])
-            ],
-            'input_request': state['supervision']['pending_request'],
-            "awaiting_input": True,
-        }
+        if state['supervision']['request_type'] == 'text':
+            return {
+                'supervision': {
+                    **state['supervision'],
+                    'pending_request': None,
+                },
+                "messages": [
+                    AIMessage(content=state['supervision']['pending_request'])
+                ],
+                'input_request': state['supervision']['pending_request'],
+                "awaiting_input": True,
+            }
+        elif state['supervision']['request_type'] == 'idea_form':
+            return {
+                'supervision': {
+                    **state['supervision'],
+                    'pending_request': None,
+                },
+                'input_request': state['supervision']['pending_request'],
+                "awaiting_input": True,
+            }
     # 에이전트가 사용자에게 전달할 내용이 없을 시 (TODO)
     else:
         response = get_llm(max_tokens=1000).invoke(state['messages'])
@@ -149,7 +172,8 @@ def summary_state(state: GlobalState):
         Current outputs: {current_outputs}
         Required information: {required_info}
         Missing information: {missing_information}
-        Last user input: {state['messages'][-1].content}
+        Last user input type: {state['supervision']['request_type']}
+        Last user input: {state['user_response']}
         '''
 
         # Completed steps: {completed_steps}

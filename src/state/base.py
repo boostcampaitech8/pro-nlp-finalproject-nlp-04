@@ -24,6 +24,7 @@ class SupervisionState(TypedDict):
     current_task: Annotated[str | None, '현재 작업']
     reason: Annotated[str, '결정 이유']
     pending_request: Annotated[str | None, '에이전트의 사용자 입력 요청']
+    request_type: Annotated[str | None, '요청 타입']
 
 
 class GlobalState(TypedDict):

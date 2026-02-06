@@ -48,7 +48,7 @@ def analyzer_node(state: InternalState):
 
     analyzer_llm = get_llm(temperature=0.1, max_tokens=2048, reasoning_effort='high').bind(response_format={"type": "json_object"})
     formatted_prompt = ANALYZER_PROMPT.format(
-        user_input=state['messages'][-1].content,
+        user_input=state['user_response'],
         blueprint=[item['title'] for item in blueprint],
         required_data_points=q_context
     )
@@ -63,7 +63,7 @@ def analyzer_node(state: InternalState):
 
 def creator_node(state: InternalState):
     system_msg = SystemMessage(content=CREATOR_PROMPT)
-    user_input = state['messages'][-1].content
+    user_input = state['user_response']
     llm = get_llm(temperature=0.3, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
@@ -91,7 +91,7 @@ def creator_node(state: InternalState):
     
 def updater_node(state: InternalState):
     system_msg = SystemMessage(content=UPDATER_PROMPT)
-    user_input = state['messages'][-1].content
+    user_input = state['user_response']
     llm = get_llm(temperature=0.5, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
