@@ -119,7 +119,7 @@ def updater_node(state: InternalState):
 
 def questioner_node(state: InternalState):
     system_msg = SystemMessage(content=QUESTIONER_PROMPT)
-    llm = get_mini_llm(temperature=0.3, max_tokens=1000)
+    llm = get_mini_llm(temperature=0.5, max_tokens=4000).bind(response_format={"type": "json_object"})
 
     intent = state.get("internal_user_intent")
     # 의도가 불분명한 경우 (AMBIGUOUS)
@@ -151,21 +151,20 @@ def questioner_node(state: InternalState):
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
     context_info = f"""
     blueprint: {blueprint}
-    current_status: {not_completed_count}
     """
 
     response = llm.invoke([
         system_msg,
         HumanMessage(content=f"{context_info}")
     ])
-    question_content = response.content
+    result = json.loads(response.content)
     
     return {
         "idea":{
             **state['idea'],
-            "messages": question_content,
+            "form": result.get("forms", [])
         },
-        "required_data_points": question_content
+        "required_data_points": result.get("forms", [])
     }
 
 def evaluator_node(state: InternalState):
@@ -182,9 +181,9 @@ def evaluator_node(state: InternalState):
         }
 
     # 검수 통과 시: 다음 단계 준비
-    remaining_questions = state.get('required_data_points', [])
+    remaining_sections = [s for s in blueprint if s.get('is_required_from_user') == True]
     
-    if not remaining_questions:
+    if not remaining_sections:
         # 모든 데이터가 수집됨
         decision = "COMPLETE"
         state["idea"]["toc"] = [section.get('title') for section in blueprint]

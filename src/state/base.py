@@ -8,6 +8,7 @@ class IdeaState(TypedDict):
     blueprint: Annotated[List[Dict[str, Any]], '기획 청사진']
     last_decision: Annotated[str, 'Evaluator의 결정']
     messages: Annotated[str, 'AI가 생성한 메시지']
+    form: Annotated[List[Dict[str, Any]], 'AI가 생성한 질문']
     
 
 class PlanState(TypedDict):
