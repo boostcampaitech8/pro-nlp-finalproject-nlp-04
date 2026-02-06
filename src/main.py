@@ -61,6 +61,12 @@ def create_initial_state():
             "last_decision": "",
             "messages": "",
         },
+        "plan": {
+            "sections": [],
+            "final_markdown": "",
+            "output_path": "",
+            "visual_artifacts": {},
+        },
         "supervision": {
             "goal": "Produce a high-quality vibe-based planning document",
             "last_decision": "",

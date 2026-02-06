@@ -55,7 +55,6 @@ class GeneratedPlan(BaseModel):
 
 class BlueprintItem(BaseModel):
     """Blueprint 개별 항목 (외부 에이전트 제공)"""
-    target_id: str = Field(..., description="항목 ID (예: item_1)")
     title: str = Field(..., description="섹션 제목")
     content: Optional[str] = Field(None, description="미리 작성된 내용 (있으면 그대로 사용)")
     guideline: Optional[str] = Field(None, description="LLM 생성 시 참고할 가이드라인")
