@@ -11,6 +11,7 @@ def supervisor_node(state: GlobalState) -> GlobalState:
             'awaiting_input': False,
             'user_response': None,
             'input_request': None,
+            'form_request': None, # Clear form request
         }
 
     return {}
@@ -24,10 +25,12 @@ def ask_user(state: GlobalState) -> GlobalState:
             ],
             "awaiting_input": True,
             'input_request': response.content,
+            'form_request': None, # Default to None
         }
     return {
         "awaiting_input": True,
         'input_request': None,
+        'form_request': None,
     }
 
 def supervisor_router(state: GlobalState):    
