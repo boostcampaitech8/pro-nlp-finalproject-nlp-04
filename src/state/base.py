@@ -17,6 +17,11 @@ class PlanState(TypedDict):
     visual_artifacts: Annotated[Dict[str, Any], '시각화(표/차트) 메타데이터 리스트']
 
 
+class EditState(TypedDict):
+    last_edited_section: Annotated[str, "마지막으로 수정된 섹션 ID"]
+    edit_history: Annotated[List[str], "수정 이력"]
+
+
 class SupervisionState(TypedDict):
     last_decision: Annotated[str, '마지막 결정']
 
@@ -28,4 +33,5 @@ class GlobalState(TypedDict):
     current_task: Annotated[str | None, '현재 작업']
     idea: IdeaState
     plan: PlanState
+    edit: EditState
     supervision: SupervisionState
