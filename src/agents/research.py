@@ -3,7 +3,7 @@ import hashlib
 from datetime import datetime
 
 from state.base import GlobalState
-from state.research import ResearchState, SearchQueries, SearchItem
+from state.research import ResearchState, SearchQueries, SearchItem, ExtractedItem
 from langchain_core.prompts import ChatPromptTemplate
 # from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_upstage import ChatUpstage, UpstageEmbeddings
@@ -115,13 +115,12 @@ def generate_queries(state: ResearchState):
     print(f"\n--- [Node: Query Generator] 분석 중: {question} ---")
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """당신은 검색 전문가입니다. 사용자의 질문을 분석하여 
-        가장 정확하고 전문적인 검색 결과를 얻을 수 있는 다각도의 검색 쿼리를 생성하세요.
-        결과는 영어 및 한국어 각각 3개 내외로 작성하세요."""),
+        ("system", """You're a search expert. Analyze users' queries and create multi-faceted search queries that yield the most accurate and professional results.
+Consist of results in approximately two English and three Korean."""),
         ("human", "{question}")
     ])
     
-    llm = ChatUpstage(model=MODEL_NAME_MINI, temperature=0.1, api_key=UPSTAGE_API_KEY)
+    llm = ChatUpstage(model=MODEL_NAME_PRO, temperature=0.1, api_key=UPSTAGE_API_KEY)
     structured_llm = llm.with_structured_output(SearchQueries)
     
     query_chain = prompt | structured_llm
@@ -133,7 +132,7 @@ def search_with_tavily(state: ResearchState):
     queries = state.search_queries
     search = TavilySearch(
         max_results=5,
-        search_depth="basic",
+        search_depth="advanced",
         include_raw_content=True
     )
     search_results = []
@@ -201,6 +200,55 @@ def upsert_qdrant(state: ResearchState):
 
     return state
 
+def execute_hybrid_search(state: ResearchState):
+    query_embeddings = UpstageEmbeddings(
+        api_key=UPSTAGE_API_KEY,
+        model="embedding-query"
+    )
+    query_embedding = query_embeddings.embed_documents(
+        [state.question]
+    )[0]
+    
+    queried_results = qdrant_client.query_points(
+        collection_name=COLLECTION_NAME,
+        prefetch=[
+            # (1) Dense 벡터 검색 (Semantic)
+            models.Prefetch(
+                query=query_embedding,
+                using="text-dense",
+                limit=10,
+            ),
+            # (2) Sparse 벡터 검색 (Keyword)
+            models.Prefetch(
+                query=Document(
+                    text=state.question,
+                    model="qdrant/bm25"
+                ),
+                using="text-sparse",
+                limit=10,
+            ),
+        ],
+        # (3) 두 결과를 RRF로 통합
+        query=models.FusionQuery(
+            fusion=models.Fusion.RRF
+        ),
+        limit=5 # 최종 결과 개수
+    )
+
+    extracted_results = []
+    for result in queried_results.points:
+        payload = result.payload
+        item = ExtractedItem(
+            item_type=payload.get("text_type"),
+            title=payload.get("title"),
+            url=payload.get("url"),
+            content=payload.get("content"),
+            score=result.score
+        )
+        extracted_results.append(item)
+
+    return {"search_results": extracted_results}
+
 def analysis_search_results(state: ResearchState):
     """
     Docstring for analysis_search_results
@@ -215,7 +263,7 @@ def analysis_search_results(state: ResearchState):
     summary = ""
     # results_top5 = sorted(search_results, key=lambda x: x.score)[-5:]
     for result in search_results[-5:]:
-        summary += f"### {result.title}\n\n{result.content}\n\n\n"
+        summary += f"### <자료 제목> {result.title}\n\n<자료 내용>{result.content}\n\n\n"
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", """당신은 분석 전문가입니다.
