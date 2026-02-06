@@ -119,7 +119,7 @@ def updater_node(state: InternalState):
 
 def questioner_node(state: InternalState):
     system_msg = SystemMessage(content=QUESTIONER_PROMPT)
-    llm = get_mini_llm(temperature=0.3, max_tokens=1000).bind(response_format={"type": "json_object"})
+    llm = get_mini_llm(temperature=0.5, max_tokens=4000).bind(response_format={"type": "json_object"})
 
     intent = state.get("internal_user_intent")
     # 의도가 불분명한 경우 (AMBIGUOUS)
