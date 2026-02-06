@@ -57,8 +57,8 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                         'request_type': 'idea_form',
                     }
             }
-            # 아이디어 에이전트 컨펌
-            elif state['idea']['last_decision'] == 'CONFIRM':
+            # 아이디어 에이전트 COMPLETE
+            elif state['idea']['last_decision'] == 'COMPLETE':
                 return {
                     'supervision': {
                         **state['supervision'],
