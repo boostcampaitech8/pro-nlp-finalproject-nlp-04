@@ -20,10 +20,10 @@ supervisor_graph.add_conditional_edges(
     "supervisor",
     supervisor_router,
     {
-        "ask_user": "ask_user",
-        "invoke_idea": "idea_phase",
-        "invoke_plan": "plan_phase",
-        "invoke_research": "research_phase",
+        "ASK_USER": "ask_user",
+        "RUN_IDEA_STRUCTURING": "idea_phase",
+        "RUN_PLANNING": "plan_phase",
+        "RUN_RESEARCH": "research_phase",
         "supervisor_node": "supervisor"
     }
 )

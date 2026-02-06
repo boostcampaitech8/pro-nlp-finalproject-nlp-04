@@ -7,7 +7,6 @@ initial_state = {
     "awaiting_input": False,
     "input_request": None,
     "user_response": None,
-    "current_task": None,
     "idea": {
         "planning_style": "",
         "rationale": "",
@@ -17,7 +16,11 @@ initial_state = {
         "messages": "",
     },
     "supervision": {
+        "goal": "Produce a high-quality vibe-based planning document",
         "last_decision": "",
+        "current_task": None,
+        "reason": "",
+        "pending_request": None,
     },
 }
 

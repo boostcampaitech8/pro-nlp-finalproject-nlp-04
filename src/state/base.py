@@ -18,14 +18,18 @@ class PlanState(TypedDict):
 
 
 class SupervisionState(TypedDict):
+    goal: Annotated[str, 'Produce a high-quality vibe-based planning document']
     last_decision: Annotated[str, '마지막 결정']
+    current_task: Annotated[str | None, '현재 작업']
+    reason: Annotated[str, '결정 이유']
+    pending_request: Annotated[str | None, '에이전트의 사용자 입력 요청']
+
 
 class GlobalState(TypedDict):
     messages: Annotated[list, add_messages]
     awaiting_input: Annotated[bool, '입력 대기 여부']
-    input_request: Annotated[str | None, '입력 요청']
+    input_request: Annotated[str | None, '사용자 입력 요청 내용']
     user_response: Annotated[str | None, '사용자 응답']
-    current_task: Annotated[str | None, '현재 작업']
     idea: IdeaState
     plan: PlanState
     supervision: SupervisionState
