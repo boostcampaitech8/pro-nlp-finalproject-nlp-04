@@ -1,0 +1,71 @@
+.container {
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sectionHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sectionTitle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.5px;
+}
+
+.question {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #212529;
+    line-height: 1.4;
+}
+
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.optionButton {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    font-size: 0.9rem;
+    color: #495057;
+}
+
+.optionButton:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.guideText {
+    font-size: 0.85rem;
+    color: #6c757d;
+    background-color: #e9ecef;
+    padding: 8px 12px;
+    border-radius: 6px;
+    line-height: 1.4;
+}

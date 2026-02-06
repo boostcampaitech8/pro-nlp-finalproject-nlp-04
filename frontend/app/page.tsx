@@ -65,7 +65,32 @@ export default function Home() {
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         role: 'ai',
-        content: '현재는 모의 응답입니다. 나중에 실제 AI와 연결될 예정입니다.'
+        content: '기획서 작성을 위해 몇 가지 정보가 필요합니다.',
+        form: {
+          message: "기획서 작성을 위해 몇 가지 정보가 필요합니다.",
+          forms: [
+            {
+              current_section: "프로젝트 목적",
+              question: "이 프로젝트의 주된 목적은 무엇인가요?",
+              options: [
+                { label: "신규 서비스 런칭", value: "new_launch" },
+                { label: "기존 서비스 리뉴얼", value: "renewal" },
+                { label: "내부 운영 효율화", value: "internal_ops" }
+              ],
+              guide_text: "프로젝트 성격에 따라 기획 방향이 달라질 수 있습니다."
+            },
+            {
+              current_section: "타겟 사용자",
+              question: "주요 타겟 사용자는 누구인가요?",
+              options: [
+                { label: "일반 대중 (B2C)", value: "b2c" },
+                { label: "기업 고객 (B2B)", value: "b2b" },
+                { label: "내부 임직원", value: "employee" }
+              ],
+              guide_text: "사용자 층에 따라 UI/UX 설계가 달라집니다."
+            }
+          ]
+        }
       }]);
     }, 1000);
   };
