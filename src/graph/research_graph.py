@@ -93,6 +93,18 @@ if __name__ == '__main__':
     print("최종 결과")
     print("="*60)
     print(f"\n[질문] {output['question']}")
-    print(f"\n[KG 캐시] {output['kg_cached_info'][:200] if output['kg_cached_info'] else '없음'}...")
-    print(f"\n[KG 추출] {output['kg_extraction_summary']}")
-    print(f"\n[분석 결과] {output['analysis_result'][:500]}...")
+    
+    kg_summary = output.get('kg_extraction_summary', '검색 스킵됨')
+    print(f"\n[KG 추출] {kg_summary}")
+    
+    kg_cached = output.get('kg_cached_info', '')
+    if kg_cached:
+        print(f"\n[KG 캐시] {kg_cached[:200]}...")
+    else:
+        print(f"\n[KG 캐시] 없음")
+    
+    print(f"\n[분석 결과 (처음 500자)]")
+    print(output['analysis_result'][:500])
+    
+    if output.get('analysis_file_path'):
+        print(f"\n📄 전체 결과 파일: {output['analysis_file_path']}")
