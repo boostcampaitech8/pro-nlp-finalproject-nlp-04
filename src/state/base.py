@@ -8,14 +8,8 @@ class IdeaState(TypedDict):
     blueprint: Annotated[List[Dict[str, Any]], '기획 청사진']
     last_decision: Annotated[str, 'Evaluator의 결정']
     messages: Annotated[str, 'AI가 생성한 메시지']
+    form: Annotated[List[Dict[str, Any]], 'AI가 생성한 질문']
     
-<<<<<<< HEAD
-class SupervisionState(TypedDict):
-    stage: Annotated[str, 'Stage']
-    user_intent: Annotated[str, 'User Intent']
-    last_decision: Annotated[str, 'Last Decision']
-
-=======
 
 class PlanState(TypedDict):
     sections: Annotated[List[str], '생성된 섹션 본문 리스트']
@@ -27,7 +21,6 @@ class PlanState(TypedDict):
 class SupervisionState(TypedDict):
     last_decision: Annotated[str, '마지막 결정']
 
->>>>>>> main
 class GlobalState(TypedDict):
     messages: Annotated[list, add_messages]
     awaiting_input: Annotated[bool, '입력 대기 여부']
