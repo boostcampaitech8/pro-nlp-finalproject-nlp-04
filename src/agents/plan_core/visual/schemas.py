@@ -26,17 +26,29 @@ class DiagramType(str, Enum):
     timeline = "timeline"
 
 
+class ChartType(str, Enum):
+    none = "none"
+    pie = "pie"
+    bar = "bar"
+    line = "line"
+    scatter = "scatter"
+
+
+
 class Decision(BaseModel):
     """시각화 필요성 판단 결과"""
     # 핵심 플래그
     needs_table: bool = False
     needs_diagram: bool = False
+    needs_chart: bool = False
     needs_image_search: bool = False
     needs_image_gen: bool = False
 
     # 상세 타입
     table_type: TableType = TableType.none
     diagram_type: DiagramType = DiagramType.none
+    chart_type: ChartType = ChartType.none
+
 
     # 검색/생성 힌트
     image_query: List[str] = Field(default_factory=list, description="검색 키워드(없으면 빈 배열)")
@@ -57,12 +69,15 @@ class Decision(BaseModel):
 
 class VisualMeta(BaseModel):
     """시각화 메타데이터 - 왜 이 시각화가 필요한지"""
-    visual_type: str = Field(..., description="table, diagram, image_search, image_gen")
+    visual_type: str = Field(..., description="table, diagram, chart, image_search, image_gen")
     purpose: str = Field(..., description="시각화 목적 (예: '가격 변동 추이를 직관적으로 비교')")
     why_this_format: str = Field(..., description="왜 이 형식인지 (예: '시간에 따른 변화를 보여주기에 라인차트가 적합')")
     data_source: str = Field(default="", description="데이터 출처 설명")
     placeholder: str = Field(default="", description="임시 표기 (예: '(이미지 검색 후 삽입)')")
     content: Optional[str] = Field(default=None, description="생성된 콘텐츠 (표, 다이어그램 등)")
+    image_path: Optional[str] = Field(default=None, description="로컬 저장 경로")
+    image_url: Optional[str] = Field(default=None, description="외부 공개 URL (S3, drive 등)")
+
 
 
 class VisualArtifact(BaseModel):

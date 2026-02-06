@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 from base import GlobalState
 from typing import Annotated, TypedDict, List, Dict, Any, Optional
 from langgraph.graph.message import add_messages
+=======
+from state.base import GlobalState
+from typing import Annotated, List
+>>>>>>> main
 
 # 기존 GlobalState를 상속받습니다.
 class InternalState(GlobalState):

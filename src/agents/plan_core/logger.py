@@ -19,8 +19,11 @@ class PipelineLogger:
     """파이프라인 실행 로그 기록"""
     
     def __init__(self, log_dir: str = "logs"):
-        self.log_dir = Path(log_dir)
+        # 프로젝트 루트 경로 찾기 (src의 상위 디렉토리)
+        project_root = Path(__file__).parent.parent.parent.parent
+        self.log_dir = project_root / log_dir
         self.log_dir.mkdir(exist_ok=True)
+
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.log_file = self.log_dir / f"pipeline_{timestamp}.log"

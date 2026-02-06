@@ -5,7 +5,11 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from langgraph.graph import StateGraph, END
+<<<<<<< HEAD
 from state.base import InternalState
+=======
+from state.idea import InternalState
+>>>>>>> main
 from agents.idea import idea_router, analyzer_node, creator_node, updater_node, questioner_node, evaluator_node
 
 
@@ -36,7 +40,11 @@ idea_graph.add_edge("questioner", "evaluator")
 
 idea_graph.add_conditional_edges(
     "evaluator",
+<<<<<<< HEAD
     lambda x: x["supervision"]["last_decision"],
+=======
+    lambda x: x["idea"]["last_decision"],
+>>>>>>> main
     {
         "REJECTED": "analyzer",       
         "WAIT_FOR_USER": END,          

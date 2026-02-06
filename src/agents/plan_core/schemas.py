@@ -66,9 +66,8 @@ class StructuredInput(BaseModel):
     """외부 에이전트가 제공하는 구조화된 입력"""
     planning_style: str = Field(..., description="기획 스타일 (예: Business, Technical)")
     rationale: str = Field(..., description="해당 스타일 선택 이유")
-    system_prompt: Optional[str] = Field(
-        None, 
-        description="전체 기획서의 톤/스타일을 정의하는 시스템 프롬프트 (없으면 기본 프롬프트 사용)"
-    )
     toc: List[str] = Field(default_factory=list, description="목차 리스트")
     blueprint: List[BlueprintItem] = Field(default_factory=list, description="섹션별 청사진")
+
+
+
