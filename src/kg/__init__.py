@@ -1,65 +1,52 @@
 """
 Knowledge Graph 모듈
 
-역할:
-    1. Tavily 검색 결과로부터 Relationship Extraction (RE) 수행
-    2. 추출된 트리플을 바탕으로 NetworkX 기반 KG 구축 및 증강
-    3. LangGraph Tool로 다른 Agent에서 KG 조회 가능
-
-사용법:
-    from kg import kg_get_entity, kg_search_text, kg_add_triplets
+하위 모듈:
+    - config: 설정 및 상수
+    - ner: SpaCy NER
+    - extraction: LLM OpenIE
+    - core: KnowledgeGraphStore
+    - tools: Tool API
+    - nodes: LangGraph 노드
 """
 
-from .kg_module import (
-    # KG 조회 함수 (LangGraph Tool용)
-    kg_get_entity,
-    kg_find_related,
+from .extraction import extract_triplets_from_text
+from .tools import (
     kg_search_text,
-    
-    # KG 구축 함수
+    kg_get_entity,
     kg_add_triplets,
-    extract_triplets_from_text,
-    
-    # KG 관리 함수
+    kg_find_related,
     save_kg,
     load_kg,
-    get_kg_stats,
-    
-    # 고급 사용
-    KnowledgeGraphStore,
+    get_kg_stats
 )
-
-from .kg_nodes import (
-    # LangGraph 노드
+from .nodes import (
     kg_query_node,
     kg_extract_and_save_node,
-    
-    # Tool 래퍼
-    KGToolWrapper,
+    KGToolWrapper
 )
+from .core import KnowledgeGraphStore
 
 __all__ = [
-    # 조회 함수
-    "kg_get_entity",
-    "kg_find_related", 
-    "kg_search_text",
-    
-    # 구축 함수
-    "kg_add_triplets",
+    # Extraction
     "extract_triplets_from_text",
     
-    # 관리 함수
+    # Tools
+    "kg_search_text",
+    "kg_get_entity",
+    "kg_add_triplets",
+    "kg_find_related",
     "save_kg",
     "load_kg",
     "get_kg_stats",
     
-    # 노드
+    # Nodes
     "kg_query_node",
     "kg_extract_and_save_node",
-    
-    # 고급
-    "KnowledgeGraphStore",
     "KGToolWrapper",
+    
+    # Core
+    "KnowledgeGraphStore",
 ]
 
 __version__ = "1.0.0"
