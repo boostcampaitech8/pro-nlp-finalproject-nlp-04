@@ -51,7 +51,6 @@ def analyzer_node(state: InternalState):
     formatted_prompt = ANALYZER_PROMPT.format(
         user_input=state['user_response'],
         blueprint=[item['title'] for item in blueprint],
-        required_data_points=q_context
     )
 
     response = analyzer_llm.invoke(formatted_prompt)
