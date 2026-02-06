@@ -9,37 +9,7 @@ from state.idea import InternalState
 from models.llm import get_mini_llm, get_llm
 from prompts.idea_prompts import ANALYZER_PROMPT, CREATOR_PROMPT, UPDATER_PROMPT, QUESTIONER_PROMPT
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from typing import List, Optional
-from pydantic import BaseModel, Field
 
-# 1. 개별 옵션 구조
-class Option(BaseModel):
-    label: str = Field(..., description="옵션의 요약 명칭 (예: 성능 중심)")
-    value: str = Field(..., description="비즈니스 가치 + 기술적 근거가 포함된 1~2문장 설명")
-
-# 2. 개별 질문 폼 구조
-class QuestionForm(BaseModel):
-    current_section: str = Field(..., description="작성 중인 섹션 제목")
-    question: str = Field(..., description="유저에게 던지는 전략적 질문")
-    options: List[Option] = Field(..., description="제시할 선택지 리스트")
-    guide_text: str = Field(..., description="전문가적인 조언 또는 주의사항")
-
-# 3. 전체 응답 구조
-class QuestionResponse(BaseModel):
-    forms: List[QuestionForm] = Field(..., description="생성된 질문 폼들의 배열")
-
-class BlueprintSection(BaseModel):
-    title: str = Field(..., description="목차 이름")
-    content: Optional[str] = Field(None, description="추출된 내용 또는 null")
-    guideline: str = Field(..., description="해당 섹션 작성 지침")
-    is_required_from_user: bool = Field(..., description="사용자의 추가 입력이 필수적인지 여부")
-
-class CreatorResponse(BaseModel):
-    planning_style: str = Field(..., description="Business, Service, Technical 등 선택된 기획 스타일")
-    rationale: str = Field(..., description="해당 기획 스타일을 선택한 이유")
-    blueprint: List[BlueprintSection] = Field(..., description="생성된 전체 기획 목차 리스트")
-
-    
 def idea_router(state: InternalState) -> str:
     # analyzer에서 정한 intent를 가져옴
     intent = state.get('internal_user_intent')
@@ -78,7 +48,7 @@ def analyzer_node(state: InternalState):
 
     analyzer_llm = get_llm(temperature=0.1, max_tokens=2048, reasoning_effort='high').bind(response_format={"type": "json_object"})
     formatted_prompt = ANALYZER_PROMPT.format(
-        user_input=state['messages'][-1].content,
+        user_input=state['user_response'],
         blueprint=[item['title'] for item in blueprint],
         required_data_points=q_context
     )
@@ -93,9 +63,9 @@ def analyzer_node(state: InternalState):
 
 def creator_node(state: InternalState):
     system_msg = SystemMessage(content=CREATOR_PROMPT)
-    user_input = state['messages'][-1].content
-    llm = get_llm(temperature=0.3, max_tokens=5000, reasoning_effort='high').with_structured_output(CreatorResponse)
-
+    user_input = state['user_response']
+    llm = get_llm(temperature=0.3, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
+    
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
     context_info = f"""
     blueprint: {state['idea'].get('blueprint') or []}
@@ -105,7 +75,8 @@ def creator_node(state: InternalState):
         system_msg,
         HumanMessage(content=f"{context_info}\n\n유저 요청: {user_input}")
     ])
-    result = response.model_dump()
+
+    result = json.loads(response.content)
     
     return {
         "idea":
@@ -120,7 +91,7 @@ def creator_node(state: InternalState):
     
 def updater_node(state: InternalState):
     system_msg = SystemMessage(content=UPDATER_PROMPT)
-    user_input = state['messages'][-1].content
+    user_input = state['user_response']
     llm = get_llm(temperature=0.5, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
@@ -148,7 +119,7 @@ def updater_node(state: InternalState):
 
 def questioner_node(state: InternalState):
     system_msg = SystemMessage(content=QUESTIONER_PROMPT)
-    llm = get_mini_llm(temperature=0.5, max_tokens=4000).with_structured_output(QuestionResponse)
+    llm = get_mini_llm(temperature=0.5, max_tokens=4000).bind(response_format={"type": "json_object"})
 
     intent = state.get("internal_user_intent")
     # 의도가 불분명한 경우 (AMBIGUOUS)
@@ -186,14 +157,14 @@ def questioner_node(state: InternalState):
         system_msg,
         HumanMessage(content=f"{context_info}")
     ])
-    result = response.model_dump()
+    result = json.loads(response.content)
     
     return {
         "idea":{
             **state['idea'],
-            "form": result["forms"]
+            "form": result.get("forms", [])
         },
-        "required_data_points": result["forms"]
+        "required_data_points": result.get("forms", [])
     }
 
 def evaluator_node(state: InternalState):
