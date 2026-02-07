@@ -26,8 +26,7 @@ idea_graph.add_conditional_edges(
     {
         "creator" : "creator",
         "updater" : "updater",
-        "questioner" : "questioner",
-        "evaluator" : "evaluator" 
+        "questioner": "questioner",
     }
 )
 idea_graph.add_edge("creator", "questioner")
