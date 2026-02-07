@@ -188,12 +188,39 @@ def questioner_node(state: InternalState):
     ])
     result = json.loads(response.content)
     
+    # =====================================================
+    # [검증] LLM 응답의 options 구조 검증 및 보정
+    # 
+    # LLM이 가끔 value 키를 누락하거나 다른 형태로 반환할 수 있음
+    # ui_components.py에서 KeyError 방지를 위해 여기서 검증
+    # =====================================================
+    forms = result.get("forms", [])
+    for form in forms:
+        options = form.get("options", [])
+        validated_options = []
+        for opt in options:
+            if isinstance(opt, dict):
+                validated_options.append({
+                    "label": opt.get("label", str(opt)),
+                    "value": opt.get("value", opt.get("description", ""))
+                })
+            elif isinstance(opt, str):
+                validated_options.append({
+                    "label": opt,
+                    "value": ""
+                })
+        form["options"] = validated_options
+        
+        # [Log] guide_text가 없으면 빈 문자열로 보정하여 UI 에러 방지
+        if "guide_text" not in form:
+            form["guide_text"] = ""
+    
     return {
         "idea":{
             **state['idea'],
-            "form": result.get("forms", [])
+            "form": forms
         },
-        "required_data_points": result.get("forms", [])
+        "required_data_points": forms
     }
 
 def evaluator_node(state: InternalState):

@@ -102,31 +102,31 @@ def render_question_view(questions):
         st.markdown(f"""
             <div class="question-card">
                 <span style="color: #2563EB; font-weight: 700;">Q{idx+1}.</span>
-                <span style="font-size: 1.1rem; font-weight: 600;"> {q['question']}</span>
-                <p style="color: #6B7280; font-size: 0.9rem; margin-top: 4px;">{q['guide_text']}</p>
+                <span style="font-size: 1.1rem; font-weight: 600;"> {q.get('question', '질문 내용이 없습니다.')}</span>
+                <p style="color: #6B7280; font-size: 0.9rem; margin-top: 4px;">{q.get('guide_text', '')}</p>
             </div>
         """, unsafe_allow_html=True)
 
         # 실제 입력 컨트롤은 카드 바로 아래 배치 (또는 내부 배치)
-        option_labels = [opt["label"] for opt in q["options"]]
+        option_labels = [opt.get("label", str(opt)) for opt in q["options"]]
         selected_label = st.radio(
             q["question"], # 질문 텍스트
             option_labels,
-            captions=[opt["value"] for opt in q["options"]],
+            captions=[opt.get("value", "") for opt in q["options"]],
             key=f"q_{idx}_radio",
             label_visibility="collapsed" # 중복 방지
         )
 
-        selected_option = next(opt for opt in q["options"] if opt["label"] == selected_label)
+        selected_option = next(opt for opt in q["options"] if opt.get("label", str(opt)) == selected_label)
         user_extra = None
 
-        if selected_option["value"] == "user_input":
+        if selected_option.get("value") == "user_input":
             user_extra = st.text_input("직접 입력", key=f"q_{idx}_extra", placeholder="여기에 의견을 적어주세요...")
 
         idea_answers[q["current_section"]] = {
             "question": q["question"],
             "selected_option": selected_label,
-            "value": selected_option["value"] if user_extra is None else user_extra,
+            "value": selected_option.get("value", "") if user_extra is None else user_extra,
         }
         st.markdown("<br>", unsafe_allow_html=True) # 간격 조절
 
