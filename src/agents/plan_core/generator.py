@@ -32,18 +32,9 @@ def generate_section_from_blueprint(
 ) -> PlanSection:
     """
     Blueprint 항목을 기반으로 섹션을 생성합니다.
-    - content가 있으면 그대로 반환
-    - content가 없으면 guideline + 이전 섹션 컨텍스트로 LLM 생성
+    - guideline + content(참고 컨텍스트) + 이전 섹션 컨텍스트로 LLM 생성
     """
     section_number = str(section_index + 1)
-    
-    # content가 이미 있으면 그대로 사용
-    if blueprint_item.content:
-        return PlanSection(
-            section_number=section_number,
-            title=blueprint_item.title,
-            content=blueprint_item.content
-        )
     
     # content가 없으면 LLM으로 생성
     previous_sections = previous_sections or []
@@ -70,14 +61,20 @@ def generate_section_from_blueprint(
     )
 
     guideline = blueprint_item.guideline or "자유롭게 작성"
+    context_hint = blueprint_item.content or ""
+    
+    # 유저 프롬프트 생성 (content 있으면 참고 컨텍스트로 추가)
+    user_prompt = SECTION_GENERATION_USER_PROMPT.format(
+        section_number=section_number,
+        title=blueprint_item.title,
+        guideline=guideline
+    )
+    if context_hint:
+        user_prompt += f"\n\n참고 컨텍스트 (반드시 더 상세하게 확장할 것):\n{context_hint}"
     
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=SECTION_GENERATION_USER_PROMPT.format(
-            section_number=section_number,
-            title=blueprint_item.title,
-            guideline=guideline
-        ))
+        HumanMessage(content=user_prompt)
     ]
     
     # LLM 호출
