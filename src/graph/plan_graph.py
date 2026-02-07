@@ -2,6 +2,12 @@
 Plan 서브그래프 - Blueprint 기반 기획서 생성 (Global Wrapper Graph)
 """
 from langgraph.graph import StateGraph, END
+import sys
+import os
+
+# Add src to path if running directly
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from state.base import GlobalState
 from agents.plan import plan_generate, plan_evaluate, plan_eval_router
 

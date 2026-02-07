@@ -125,7 +125,7 @@ def compose_plan_markdown(
     생성된 기획서를 마크다운 문서로 조합합니다.
     시각화 결과물이 있으면 해당 섹션에 포함합니다.
     """
-    from agents.plan_core.visual.schemas import VisualArtifact
+    from agents.visual_core.schemas import VisualArtifact
     visual_artifacts = visual_artifacts or []
     visual_by_section = {v.section_number: v for v in visual_artifacts}
     
@@ -208,6 +208,7 @@ def _format_visual_block(visual: "VisualArtifact") -> str:
     else:
         lines.append(meta.content)
     
+    
     lines.append("")
     lines.append(f"> **시각화 목적**: {meta.purpose}")
     lines.append(f"> **형식 선택 이유**: {meta.why_this_format}")
@@ -215,3 +216,53 @@ def _format_visual_block(visual: "VisualArtifact") -> str:
         lines.append(f"> **데이터 출처**: {meta.data_source}")
     
     return "\n".join(lines)
+
+
+def generate_partial_edit(
+    instruction: str,
+    target_text: str,
+    prefix_text: str,
+    suffix_text: str,
+    granularity: str
+) -> str:
+    """
+    기존 텍스트의 일부분(Target)만 수정하여 반환합니다.
+    - prefix/suffix Context를 고려하여 자연스럽게 이어지도록 생성
+    """
+    
+    system_prompt = f"""당신은 전문 문서 에디터입니다.
+    사용자의 요청에 따라 문맥을 고려하여 문서의 일부분을 수정해야 합니다.
+    
+    **작업 목표**:
+    1. [수정 대상 내용]을 [수정 요청]에 맞게 다시 작성하세요.
+    2. [앞 문맥]과 [뒷 문맥]을 고려하여 글의 흐름이 자연스럽게 이어지도록 하세요.
+    3. 오직 **수정된 결과물**만 출력하세요. (설명이나 인사말 제외)
+    4. {granularity} 단위의 수정임을 감안하여 분량을 조절하세요.
+    """
+    
+    user_content = f"""
+    [앞 문맥]
+    {prefix_text}
+    
+    [수정 대상 내용]
+    {target_text}
+    
+    [뒷 문맥]
+    {suffix_text}
+    
+    [수정 요청]
+    {instruction}
+    
+    수정된 내용:"""
+    
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_content)
+    ]
+    
+    # LLM 호출
+    chat = get_llm(max_tokens=4096, reasoning_effort="medium")
+    response = chat.invoke(messages)
+    
+    return response.content.strip()
+
