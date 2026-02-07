@@ -4,7 +4,20 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from prompts.supervisor_prompt import ROUTING_PROMPT
 from langchain_core.output_parsers import JsonOutputParser
 
+from agents.plan_core.logger import get_logger, LogLevel
+
 def supervisor_node(state: GlobalState) -> GlobalState:
+    logger = get_logger()
+    last_action = state.get('supervision', {}).get('last_decision', 'None')
+    plan_status = state.get('plan', {}).get('plan_status', 'None')
+    
+    logger.log(LogLevel.INFO, "supervisor", 
+        f"Supervisor 진입 (Last Action: {last_action}, Plan Status: {plan_status})", {
+            "last_decision": last_action,
+            "plan_status": plan_status,
+            "current_task": state.get('supervision', {}).get('current_task')
+        })
+    
     # 사용자 응답이 있으면, 해당 내용을 메시지에 추가
     if state['awaiting_input'] == True:
         if state['supervision']['request_type'] == 'text':
@@ -66,6 +79,42 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     }
                 }
         elif last_decision == 'RUN_PLANNING':
+            # =====================================================
+            # [Research 연동] Plan Agent 실행 후 리서치 필요 여부 확인
+            # 
+            # Plan Agent에서 plan_status='WAITING_FOR_RESEARCH'로 설정하면
+            # Supervisor는 이를 감지하여 Research Agent를 호출
+            # =====================================================
+            plan_data = state.get('plan', {})
+            research_state = state.get('research', {})
+            
+            status = plan_data.get('plan_status')
+            
+            if status == 'WAITING_FOR_RESEARCH':
+                # 리서치가 필요한 경우 → Research Agent 호출
+                logger.log(LogLevel.INFO, "supervisor", 
+                    f"Routing to RUN_RESEARCH (Section: {research_state.get('section_context', '')})")
+                return {
+                    'supervision': {
+                        **state['supervision'],
+                        'last_decision': 'RUN_RESEARCH',
+                        'current_task': 'research',
+                        'pending_research_section': research_state.get('section_context', ''),
+                    }
+                }
+            elif status == 'IN_PROGRESS':
+                # 아직 남은 섹션이 있는 경우 → Plan Agent 재호출 (Loop)
+                logger.log(LogLevel.INFO, "supervisor", "Plan IN_PROGRESS. Looping RUN_PLANNING...")
+                return {
+                    'supervision': {
+                        **state['supervision'],
+                        'last_decision': 'RUN_PLANNING',
+                        'current_task': 'planning',
+                    }
+                }
+            
+            # 기획서 작성 완료 (모든 섹션 생성 완료)
+            logger.log(LogLevel.INFO, "supervisor", "Plan COMPLETED. Asking User.")
             return {
                 'completed_steps': 'planning',
                 'supervision': {
@@ -76,12 +125,24 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     'request_type': 'text',
                 }
             }
+        
         elif last_decision == 'RUN_RESEARCH':
-            # TODO
+            # =====================================================
+            # [Research 연동] Research Agent 실행 완료 후 처리
+            # 
+            # Research Agent 실행 결과:
+            #   - state['research']['gathered_evidence']: 수집된 검색 결과
+            #   - state['research']['analysis_result']: 분석 결과 텍스트
+            #   - state['research']['needs_research']: False로 설정됨
+            # 
+            # 다시 Plan Agent로 돌아가서 동일 섹션 생성 재개
+            # (current_section_index는 그대로 유지되어 있음)
+            # =====================================================
             return {
                 'supervision': {
                     **state['supervision'],
-                    'last_decision': 'ASK_USER',
+                    'last_decision': 'RUN_PLANNING',
+                    'current_task': 'planning',
                 }
             }
     # 사용자 응답과 현재 상태를 파악 후, 분기
@@ -92,6 +153,9 @@ def supervisor_node(state: GlobalState) -> GlobalState:
             HumanMessage(content=routing_context),
             ])
         response_json = JsonOutputParser().parse(response.content)
+        logger.log(LogLevel.DEBUG, "supervisor", f"Router LLM Decision: {response_json.get('next_action')}", {
+            "decision": response_json
+        })
         return {
             'supervision': {
                 **state['supervision'],
