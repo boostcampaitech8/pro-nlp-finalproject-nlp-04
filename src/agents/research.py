@@ -4,6 +4,7 @@ from datetime import datetime
 
 from state.base import GlobalState
 from state.research import ResearchState, SearchQueries, SearchItem, ExtractedItem
+from prompts.research_prompts import RESEARCH_ANALYSIS_PROMPT, RESEARCH_QUERY_GEN_PROMPT
 from langchain_core.prompts import ChatPromptTemplate
 # from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_upstage import ChatUpstage, UpstageEmbeddings
@@ -66,9 +67,6 @@ def research_eval_router(state: GlobalState) -> str:
 from datetime import datetime, timezone
 
 def check_db_freshness(client: QdrantClient, collection_name: str, url: str, stale_days: int = 7):
-    """
-    Qdrant DB에서 URL 존재 여부와 데이터의 신선도를 체크합니다.
-    """
     try:
         # 필터링을 사용하여 특정 URL 검색
         search_result, _ = client.scroll(
@@ -88,7 +86,6 @@ def check_db_freshness(client: QdrantClient, collection_name: str, url: str, sta
         if not search_result:
             return {"is_indexed": False, "is_stale": False}
 
-        # 데이터가 존재하는 경우 신선도 계산
         record = search_result[0]
         last_scraped_str = record.payload.get("last_scraped_at")
         
@@ -115,8 +112,7 @@ def generate_queries(state: ResearchState):
     print(f"\n--- [Node: Query Generator] 분석 중: {question} ---")
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You're a search expert. Analyze users' queries and create multi-faceted search queries that yield the most accurate and professional results.
-Consist of results in approximately two English and three Korean."""),
+        ("system", RESEARCH_QUERY_GEN_PROMPT),
         ("human", "{question}")
     ])
     
@@ -132,7 +128,7 @@ def search_with_tavily(state: ResearchState):
     queries = state.search_queries
     search = TavilySearch(
         max_results=5,
-        search_depth="advanced",
+        search_depth="basic",
         include_raw_content=True
     )
     search_results = []
@@ -152,7 +148,7 @@ def search_with_tavily(state: ResearchState):
                 snippet=res.get("content", ""),
                 content=res.get("raw_content", res.get("content", "")),
                 is_indexed=db_status["is_indexed"],
-                is_stale=db_status["is_stale"]
+                is_stale=db_status["is_stale"],
             )
             search_results.append(item)
 
@@ -262,15 +258,13 @@ def analysis_search_results(state: ResearchState):
 
     summary = ""
     # results_top5 = sorted(search_results, key=lambda x: x.score)[-5:]
-    for result in search_results[-5:]:
+    for result in search_results:
         summary += f"### <자료 제목> {result.title}\n\n<자료 내용>{result.content}\n\n\n"
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """당신은 분석 전문가입니다.
-        주어진 사용자의 질문 또는 요청을 바탕으로 검색 결과를 분석하여
-        질문 또는 요청에 대해 적절한 참고용 분석 자료를 작성하세요."""),
+        ("system", RESEARCH_ANALYSIS_PROMPT),
+        ("human", "## 참고 자료(관련 검색 결과)\n{summary}"),
         ("human", "{question}"),
-        ("human", "## 참고 자료(관련 검색 결과)\n{summary}")
     ])
 
     llm = ChatUpstage(model=MODEL_NAME_PRO, temperature=0.1, api_key=UPSTAGE_API_KEY)
