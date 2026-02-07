@@ -1,0 +1,11 @@
+Calculated End Line: 2
+Used Guideline: Partial Edit (sentence): 이 문장 좀 더 자연스럽게 매끄럽게 다듬어줘
+
+--- Regenerated Content ---
+첫 번째 줄입니다.
+두 번째 줄입니다.
+세 번째 줄은 다소 어색하게 느껴집니다.
+네 번째 줄입니다.
+---------------------------
+
+✅ PASS: edit_range_end automatically set to start_line

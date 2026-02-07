@@ -32,15 +32,22 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     
     # content가 존재하고, 범위가 명시된 경우 부분 수정 진행
     if granularity in ["paragraph", "sentence", "block", "subtree"] and range_start is not None:
-        print(f"[Edit] 부분 수정 모드: {granularity} (Lines: {range_start}~{range_end})")
         
         # 현재 컨텐츠 분리 (줄바꿈 기준)
         current_content = target_item.content or ""
         lines = current_content.split('\n')
         
+        # range_end 자동 계산 (제공되지 않은 경우)
+        if range_end is None:
+            # 기본값: range_start와 동일 (한 줄 수정)
+            range_end = range_start
+            print(f"[Edit] range_end 미지정 -> {range_end}로 자동 설정")
+            
+        print(f"[Edit] 부분 수정 모드: {granularity} (Lines: {range_start}~{range_end})")
+        
         # 범위 보정 (Index Out of Bounds 방지)
         safe_start = max(0, min(range_start, len(lines) - 1))
-        safe_end = max(safe_start, min(range_end if range_end is not None else safe_start, len(lines) - 1))
+        safe_end = max(safe_start, min(range_end, len(lines) - 1))
         
         # Context 추출
         prefix_lines = lines[:safe_start]
@@ -66,7 +73,12 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
         state["used_guideline"] = f"Partial Edit ({granularity}): {state['instruction']}"
         print(f"[Edit] 부분 수정 완료.")
         
-        return state
+        return {
+            **state,
+            "regenerated_content": "\n".join(reassembled_lines),
+            "used_guideline": f"Partial Edit ({granularity}): {state['instruction']}",
+            "edit_range_end": safe_end
+        }
 
     # -------------------------------------------------------
     # B. Section Edit (Legacy) - Whole Section Regeneration
