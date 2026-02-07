@@ -18,7 +18,7 @@ from agents.plan_core.generator import (
     compose_plan_markdown, generate_section_from_blueprint
 )
 
-from state.plan import PlanInternalState, SectionProcessState
+from state.plan import PlanInternalState
 from agents.plan_core.logger import get_logger, LogLevel
 
 
