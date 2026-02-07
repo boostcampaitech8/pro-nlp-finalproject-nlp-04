@@ -8,12 +8,6 @@ from agents.plan_core.nodes import (
     parse_input_node,
     generate_section_node,
     increment_section_index_node,
-    check_needs_visual,
-    visual_decide_node,
-    visual_generate_node,
-    visual_validate_node,
-    visual_finalize_node,
-    route_visual_validation,
     route_next_section,
     compose_output_node,
     save_output_node,
@@ -29,43 +23,18 @@ def build_plan_pipeline():
     # 노드 추가
     g.add_node("parse_input", parse_input_node)
     g.add_node("generate_section", generate_section_node)
-    g.add_node("visual_decide", visual_decide_node)
-    g.add_node("visual_generate", visual_generate_node)
-    g.add_node("visual_validate", visual_validate_node)
-    g.add_node("visual_finalize", visual_finalize_node)
     g.add_node("increment_index", increment_section_index_node)
     g.add_node("compose_output", compose_output_node)
     g.add_node("save_output", save_output_node)
     
-    # 엣지 및 흐름 제어
+    # Init
     g.set_entry_point("parse_input")
     g.add_edge("parse_input", "generate_section")
-    g.add_edge("generate_section", "visual_decide")
     
-    # 시각화 루프 및 조건부 경로
-    g.add_conditional_edges(
-        "visual_decide",
-        check_needs_visual,
-        {
-            "visual_generate": "visual_generate",
-            "next_section": "increment_index"
-        }
-    )
+    # Edge: Generate Section -> Increment Index (No more visual loop)
+    g.add_edge("generate_section", "increment_index")
     
-    g.add_edge("visual_generate", "visual_validate")
-    
-    g.add_conditional_edges(
-        "visual_validate",
-        route_visual_validation,
-        {
-            "visual_generate": "visual_generate",
-            "visual_finalize": "visual_finalize"
-        }
-    )
-    
-    g.add_edge("visual_finalize", "increment_index")
-    
-    # 다음 섹션 또는 종료 확인
+    # Route Next Section
     g.add_conditional_edges(
         "increment_index",
         route_next_section,
