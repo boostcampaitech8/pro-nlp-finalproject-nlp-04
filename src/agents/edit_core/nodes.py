@@ -12,7 +12,7 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     print(f"[Edit] 섹션 {state['target_section_id']} 재생성 중... (요청: {state['instruction']})")
     
     # GlobalState에서 데이터 추출
-    blueprint_list = state.get("plan", {}).get("blueprint", []) if state.get("plan") else []
+    blueprint_list = state.get("idea", {}).get("blueprint", [])
     target_index = state["match_section_index"]
     
     if not blueprint_list or target_index >= len(blueprint_list):

@@ -17,7 +17,7 @@ def evaluate_section_node(state: EditInternalState) -> EditInternalState:
     original_guideline = ""
     
     # Context에서 원래 가이드라인 추출 (있는 경우)
-    blueprint = state.get("plan", {}).get("blueprint", [])
+    blueprint = state.get("idea", {}).get("blueprint", [])
     if blueprint and "match_section_index" in state:
         idx = state["match_section_index"]
         # Index range check
