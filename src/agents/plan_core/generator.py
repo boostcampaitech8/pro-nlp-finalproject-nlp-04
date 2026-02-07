@@ -133,58 +133,84 @@ def compose_plan_markdown(
     
     md_parts = []
     
-    # 제목
-    md_parts.append(f"# {plan.idea.title}")
-    md_parts.append("")
-    md_parts.append(f"> {plan.idea.summary}")
-    md_parts.append("")
-    md_parts.append(f"*생성 방법: {plan.method}*")
-    md_parts.append("")
-    md_parts.append("---")
-    md_parts.append("")
+    # 1. 헤더 (제목, 요약, 메타 등)
+    md_parts.append(format_plan_header(plan))
     
-    # 목차
-    md_parts.append("## 목차")
-    md_parts.append("")
-    for item in plan.toc.items:
-        indent = "  " * (item.section_number.count("."))
-        md_parts.append(f"{indent}- [{item.section_number}. {item.title}](#{item.section_number.replace('.', '')}-{item.title.replace(' ', '-').lower()})")
-    md_parts.append("")
-    md_parts.append("---")
-    md_parts.append("")
+    # 2. 목차
+    md_parts.append(format_plan_toc(plan))
     
-    # 가이드라인 (방법 B - Blueprint에서도 사용 가능)
-    has_guidelines = any(item.guideline for item in plan.toc.items)
-    if has_guidelines:
-        md_parts.append("## 📋 섹션별 가이드라인")
-        md_parts.append("")
-        md_parts.append("> 이 섹션은 각 챕터 작성 시 사용된 가이드라인입니다.")
-        md_parts.append("")
-        for item in plan.toc.items:
-            if item.guideline:
-                md_parts.append(f"### {item.section_number}. {item.title}")
-                md_parts.append("")
-                md_parts.append(item.guideline)
-                md_parts.append("")
-        md_parts.append("---")
-        md_parts.append("")
-    
-    # 본문 + 시각화
+    # 3. 본문 + 시각화
     for section in plan.sections:
-        level = section.section_number.count(".") + 2
-        header_prefix = "#" * level
-        md_parts.append(f"{header_prefix} {section.section_number}. {section.title}")
-        md_parts.append("")
-        md_parts.append(section.content)
-        md_parts.append("")
-        
-        # 시각화 삽입
-        if section.section_number in visual_by_section:
-            visual = visual_by_section[section.section_number]
-            md_parts.append(_format_visual_block(visual))
-            md_parts.append("")
+        visual = visual_by_section.get(section.section_number)
+        md_parts.append(format_section_content(section, visual))
     
     return "\n".join(md_parts)
+
+
+def format_plan_header(plan: GeneratedPlan) -> str:
+    """기획서 헤더 포맷팅 (제목, 요약, 구분선)"""
+    parts = []
+    parts.append(f"# {plan.idea.title}")
+    parts.append("")
+    parts.append(f"> {plan.idea.summary}")
+    parts.append("")
+    parts.append(f"*생성 방법: {plan.method}*")
+    parts.append("")
+    parts.append("---")
+    parts.append("")
+    return "\n".join(parts)
+
+
+def format_plan_toc(plan: GeneratedPlan) -> str:
+    """목차 및 가이드라인 포맷팅"""
+    parts = []
+    
+    # 목차
+    parts.append("## 목차")
+    parts.append("")
+    for item in plan.toc.items:
+        indent = "  " * (item.section_number.count("."))
+        parts.append(f"{indent}- [{item.section_number}. {item.title}](#{item.section_number.replace('.', '')}-{item.title.replace(' ', '-').lower()})")
+    parts.append("")
+    parts.append("---")
+    parts.append("")
+    
+    # 가이드라인 (선택적)
+    has_guidelines = any(item.guideline for item in plan.toc.items)
+    if has_guidelines:
+        parts.append("## 📋 섹션별 가이드라인")
+        parts.append("")
+        parts.append("> 이 섹션은 각 챕터 작성 시 사용된 가이드라인입니다.")
+        parts.append("")
+        for item in plan.toc.items:
+            if item.guideline:
+                parts.append(f"### {item.section_number}. {item.title}")
+                parts.append("")
+                parts.append(item.guideline)
+                parts.append("")
+        parts.append("---")
+        parts.append("")
+        
+    return "\n".join(parts)
+
+
+def format_section_content(section: PlanSection, visual: "VisualArtifact" = None) -> str:
+    """개별 섹션 본문 및 시각화 포맷팅"""
+    parts = []
+    level = section.section_number.count(".") + 2
+    header_prefix = "#" * level
+    
+    parts.append(f"{header_prefix} {section.section_number}. {section.title}")
+    parts.append("")
+    parts.append(section.content)
+    parts.append("")
+    
+    # 시각화 삽입
+    if visual:
+        parts.append(_format_visual_block(visual))
+        parts.append("")
+        
+    return "\n".join(parts)
 
 
 def _format_visual_block(visual: "VisualArtifact") -> str:

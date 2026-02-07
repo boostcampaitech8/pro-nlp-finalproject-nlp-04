@@ -14,7 +14,8 @@ from agents.plan_core.schemas import (
     BlueprintItem, StructuredInput
 )
 from agents.plan_core.generator import (
-    compose_plan_markdown, generate_section_from_blueprint
+    compose_plan_markdown, generate_section_from_blueprint,
+    format_plan_header, format_plan_toc, format_section_content
 )
 
 from state.plan import PlanInternalState
@@ -67,7 +68,63 @@ def parse_input_node(state: PlanInternalState) -> PlanInternalState:
     
     state["temp_visual_state"] = {}
     state["final_markdown"] = ""
-    state["output_path"] = ""
+    # [Fix] output_path 초기화 제거 (agents/plan.py에서 전달된 값 유지)
+    if "output_path" not in state:
+        state["output_path"] = ""
+    
+    return state
+
+
+def initialize_output_node(state: PlanInternalState) -> PlanInternalState:
+    """출력 파일 생성 및 헤더/목차 초기화 (Incremental Saving)"""
+    
+    # [Fix] 이미 파일이 생성되어 있다면 스킵 (반복 실행 시 파일 유지)
+    if state.get("output_path") and Path(state["output_path"]).exists():
+        print(f"[Pipeline] 기존 출력 파일 유지: {state['output_path']}")
+        return state
+
+    print("[Pipeline] 출력 파일 초기화 중...")
+    
+    project_root = Path(__file__).parent.parent.parent.parent
+    output_dir = project_root / "output"
+    output_dir.mkdir(exist_ok=True)
+    
+    # 파일명 생성
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"plan_blueprint_{timestamp}.md"
+    output_path = output_dir / filename
+    
+    # 헤더 및 목차 생성
+    idea_data = state["idea"]
+    toc_items = []
+    for i, title in enumerate(idea_data.get("toc", [])):
+        parts = title.split(". ", 1)
+        toc_items.append(TableOfContentsItem(
+            section_number=parts[0] if len(parts) > 1 else str(i + 1),
+            title=parts[1] if len(parts) > 1 else title
+        ))
+    
+    # 임시 Plan 객체 생성 (헤더/목차 포맷팅용)
+    temp_plan = GeneratedPlan(
+        idea=StructuredIdea(
+            title=idea_data["toc"][0].split(". ", 1)[-1] if idea_data.get("toc") else "기획서",
+            summary=idea_data["rationale"],
+            problem="", target_users=[], core_features=[], differentiators=[]
+        ),
+        toc=TableOfContents(items=toc_items),
+        sections=[], # 아직 섹션 없음
+        method="blueprint"
+    )
+    
+    # 파일 쓰기 (헤더 + 목차)
+    header_str = format_plan_header(temp_plan)
+    toc_str = format_plan_toc(temp_plan)
+    
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(header_str + "\n" + toc_str + "\n")
+        
+    state["output_path"] = str(output_path)
+    print(f"[Pipeline] 파일 생성됨: {output_path}")
     
     return state
 
@@ -242,6 +299,39 @@ def process_visual_node(state: PlanInternalState) -> PlanInternalState:
     return state
 
 
+def append_section_node(state: PlanInternalState) -> PlanInternalState:
+    """생성된 최신 섹션을 파일에 추가 (Incremental Saving)"""
+    if not state.get("output_path"):
+        print("[Warning] output_path가 없습니다. 섹션 저장을 건너뜁니다.")
+        return state
+        
+    # 최신 섹션 가져오기
+    if not state["sections"]:
+        return state
+        
+    last_section_data = state["sections"][-1]
+    section = PlanSection(**last_section_data)
+    
+    # 시각화 가져오기
+    visual = None
+    if state.get("visual_artifacts"):
+        # 현재 섹션 번호에 해당하는 최신 시각화 찾기
+        last_visual = state["visual_artifacts"][-1]
+        if last_visual.get("section_number") == section.section_number:
+            from agents.visual_core.schemas import VisualArtifact
+            visual = VisualArtifact(**last_visual)
+            
+    # 포맷팅
+    content_str = format_section_content(section, visual)
+    
+    # 파일에 추가 (Append)
+    with open(state["output_path"], "a", encoding="utf-8") as f:
+        f.write(content_str + "\n")
+        
+    print(f"[Pipeline] 섹션 {section.section_number} 저장 완료.")
+    return state
+
+
 # ===========================
 # 라우팅 및 보조 노드
 # ===========================
@@ -309,21 +399,26 @@ def compose_output_node(state: PlanInternalState) -> PlanInternalState:
 
 
 def save_output_node(state: PlanInternalState) -> PlanInternalState:
-    project_root = Path(__file__).parent.parent.parent.parent
-    output_dir = project_root / "output"
-    output_dir.mkdir(exist_ok=True)
-    
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"plan_blueprint_{timestamp}.md"
-    output_path = output_dir / filename
-    
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(state["final_markdown"])
-    
-    state["output_path"] = str(output_path)
-    print(f"[Pipeline] 저장 완료: {output_path}")
-    
-    # [Refactor] plan_status는 increment_section_index_node에서 결정됨
-    # 여기서는 덮어쓰지 않음
+    """
+    최종 저장 단계
+    Incremental Saving으로 이미 파일은 완성되었으므로,
+    여기서는 최종 확인 및 경로 출력만 담당 (또는 덮어쓰기 옵션)
+    """
+    output_path = state.get("output_path")
+    if output_path:
+        print(f"[Pipeline] 모든 섹션 저장 완료. 최종 파일: {output_path}")
+    else:
+        # Fallback (예외 상황)
+        print("[Warning] output_path 없음. 전체 저장 시도.")
+        project_root = Path(__file__).parent.parent.parent.parent
+        output_dir = project_root / "output"
+        output_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"plan_blueprint_fallback_{timestamp}.md"
+        output_path = output_dir / filename
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(state["final_markdown"])
+        state["output_path"] = str(output_path)
+        print(f"[Pipeline] Fallback 저장 완료: {output_path}")
     
     return state

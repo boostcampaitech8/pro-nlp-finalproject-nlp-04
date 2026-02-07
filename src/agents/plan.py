@@ -33,7 +33,7 @@ def plan_generate(state: GlobalState) -> GlobalState:
         "temp_visual_state": {},
         "final_markdown": "",
         "current_section_index": existing_index,  # 기존 인덱스 유지
-        "output_path": "",
+        "output_path": plan_data.get("output_path", ""), # [Fix] 기존 경로 유지
         "plan_status": "IN_PROGRESS", # 기본 상태
         # [Fix] 리서치 데이터를 명시적으로 전달하여 섹션 생성 시 활용
         "research": state.get("research", {}),
