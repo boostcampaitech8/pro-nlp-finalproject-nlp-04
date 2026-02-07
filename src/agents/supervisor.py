@@ -23,7 +23,7 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                 'awaiting_input': False,
                 'supervision': {
                     **state['supervision'],
-                    'last_decision': 'supervisor_node',
+                    'last_decision': 'RUN_IDEA_STRUCTURING',
                     'request_type': 'text',
                 }
             }

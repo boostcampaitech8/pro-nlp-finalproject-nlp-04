@@ -102,7 +102,7 @@ def render_question_view(questions):
         st.markdown(f"""
             <div class="question-card">
                 <span style="color: #2563EB; font-weight: 700;">Q{idx+1}.</span>
-                <span style="font-size: 1.1rem; font-weight: 600;"> {q['current_section']}</span>
+                <span style="font-size: 1.1rem; font-weight: 600;"> {q['question']}</span>
                 <p style="color: #6B7280; font-size: 0.9rem; margin-top: 4px;">{q['guide_text']}</p>
             </div>
         """, unsafe_allow_html=True)
@@ -112,6 +112,7 @@ def render_question_view(questions):
         selected_label = st.radio(
             q["question"], # 질문 텍스트
             option_labels,
+            captions=[opt["value"] for opt in q["options"]],
             key=f"q_{idx}_radio",
             label_visibility="collapsed" # 중복 방지
         )
@@ -123,6 +124,7 @@ def render_question_view(questions):
             user_extra = st.text_input("직접 입력", key=f"q_{idx}_extra", placeholder="여기에 의견을 적어주세요...")
 
         idea_answers[q["current_section"]] = {
+            "question": q["question"],
             "selected_option": selected_label,
             "value": selected_option["value"] if user_extra is None else user_extra,
         }
