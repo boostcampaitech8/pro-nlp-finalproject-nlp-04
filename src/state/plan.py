@@ -7,34 +7,26 @@ from state.base import GlobalState
 
 
 class PlanInternalState(GlobalState):
-    """기획서 생성 파이프라인 내부 전용 상태 (전역 상태 확장)"""
-    # 내부 가공용 데이터
-    sections: Annotated[List[Dict[str, Any]], "생성된 섹션 리스트 (PlanSection)"]
-    visual_artifacts: Annotated[List[Dict[str, Any]], "생성된 시각화 리스트 (VisualArtifact)"]
-    final_markdown: Annotated[str, "최종 조합된 마크다운 텍스트"]
+    """
+    기획서 생성 파이프라인 상태
     
-    # 진행 제어용
-    current_section_index: Annotated[int, "현재 작성 중인 섹션 인덱스"]
-    temp_visual_state: Annotated[Dict[str, Any], "시각화 처리를 위한 임시 상태"]
+    [입력 (From IdeaState/Global)]
+    - idea['blueprint']: 기획 청사진 (Sections, Guidelines)
+    - idea['planning_style']: 기획 스타일 (Business, Technical, etc)
     
-    # 출력 경로
-    output_path: Annotated[str, "최종 파일 저장 경로"]
+    [출력 (To GlobalState)]
+    - plan['sections']: 생성된 섹션 리스트
+    - plan['final_markdown']: 최종 병합된 마크다운
+    - plan['output_path']: 저장된 파일 경로
+    - plan['visual_artifacts']: 시각화 메타데이터
+    """
+    
+    # --- Internal Logic State ---
+    current_section_index: Annotated[int, "현재 처리 중인 섹션 인덱스 (0-based)"]
+    
+    # --- Temporary Processing Data ---
+    sections: Annotated[List[Dict[str, Any]], "생성된 섹션 객체 리스트 (중간 저장용)"]
+    visual_artifacts: Annotated[List[Dict[str, Any]], "생성된 시각화 아티팩트 리스트"]
+    final_markdown: Annotated[str, "조합된 최종 마크다운"]
+    output_path: Annotated[str, "파일 저장 경로"]
 
-
-class SectionProcessState(TypedDict, total=False):
-    """섹션 처리 상태 (시각화 서브 파이프라인용)"""
-    section_id: str
-    section_title: str
-    section_text: str
-    
-    # 시각화 결정
-    decision: Dict[str, Any]
-    visual_meta: Dict[str, Any]
-    
-    # 생성 결과
-    artifacts: Dict[str, Any]
-    
-    # 검증
-    validation_result: Dict[str, Any]
-    retry_count: int
-    should_retry: bool
