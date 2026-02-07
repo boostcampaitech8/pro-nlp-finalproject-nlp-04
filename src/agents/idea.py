@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import json
 from state.idea import InternalState
 from models.llm import get_mini_llm, get_llm
-from prompts.idea_prompts import ANALYZER_PROMPT, CREATOR_PROMPT, UPDATER_PROMPT, QUESTIONER_PROMPT
+from prompts.idea_prompts import CREATOR_PROMPT, UPDATER_PROMPT, QUESTIONER_PROMPT
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from agents.plan_core.logger import get_logger, LogLevel
 
@@ -16,17 +16,11 @@ def idea_router(state: InternalState) -> str:
     intent = state.get('internal_user_intent')
     
     # 새로 짜야 하는 경우
-    if intent in "RESTRUCTURE":
+    if intent == "RESTRUCTURE":
         return "creator"
     # 부분 수정만 필요한 경우
-    elif intent in "FILL_CONTENT":
+    elif intent == "FILL_CONTENT":
         return "updater"
-    # 만약 질문이 더 필요하거나 모호하다면
-    elif intent == "AMBIGUOUS":
-        return "questioner"
-    # 사용자가 현재 구조에 만족할 경우
-    elif intent == "CONFIRM":
-        return "evaluator"
     
     # 기본값은 일단 다시 질문함
     return "questioner"
@@ -34,44 +28,24 @@ def idea_router(state: InternalState) -> str:
 def analyzer_node(state: InternalState):
     logger = get_logger()
     user_input = state.get('user_response')
+    blueprint = state.get('blueprint') or state.get('idea', {}).get('blueprint')
     
-    if isinstance(user_input, dict) and any(key in user_input for key in ["selected_option", "value"]):
-        result = {
-            "intent": "FILL_CONTENT",
+    if isinstance(user_input, dict) and blueprint:
+        return {
+            "internal_user_intent": "FILL_CONTENT",
             "target_sections": list(user_input.keys()),
-            "reason": "Structured JSON response detected. Bypassing LLM inference."
         }
-        logger.log(LogLevel.INFO, "idea_analyzer", "Analyzer 노드 (JSON 입력 감지)", result)
-        return result
-
-    blueprint = state.get('blueprint')
-    if not blueprint:
-        result = {
-            "target_sections": None,
+    elif not blueprint:
+        return {
             "internal_user_intent": "RESTRUCTURE", 
+            "target_sections": None,
         }
-        logger.log(LogLevel.INFO, "idea_analyzer", "Analyzer 노드 (블루프린트 없음 - RESTRUCTURE)", result)
-        return result
+    else: #혹시 모를 예외 케이스: blueprint는 있는데 자연어가 들어온 경우
+        return {
+            "internal_user_intent": "RESTRUCTURE", 
+            "target_sections": None,
+        }
 
-    analyzer_llm = get_llm(temperature=0.1, max_tokens=2048, reasoning_effort='high').bind(response_format={"type": "json_object"})
-    formatted_prompt = ANALYZER_PROMPT.format(
-        user_input=state['user_response'],
-        blueprint=[item['title'] for item in blueprint],
-    )
-
-    response = analyzer_llm.invoke(formatted_prompt)
-    result = json.loads(response.content)
-    
-    logger.log(LogLevel.INFO, "idea_analyzer", f"Analyzer 노드 완료 (intent: {result['intent']})", {
-        "intent": result['intent'],
-        "target_sections": result.get('target_sections'),
-        "user_input_preview": str(user_input)[:100]
-    })
-
-    return {
-        "target_sections": result['target_sections'],
-        "internal_user_intent": result['intent'],
-    }
 
 def creator_node(state: InternalState):
     logger = get_logger()
