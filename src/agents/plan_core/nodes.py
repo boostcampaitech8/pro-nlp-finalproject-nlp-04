@@ -17,10 +17,7 @@ from agents.plan_core.schemas import (
 from agents.plan_core.generator import (
     compose_plan_markdown, generate_section_from_blueprint
 )
-from agents.plan_core.visual.schemas import Decision, VisualMeta, VisualArtifact
-from agents.plan_core.visual.router import decide_node, generate_visual_meta, route_next
-from agents.plan_core.visual.generator import render_table, render_diagram, render_chart, image_search, image_gen, create_visual_artifact
-from agents.plan_core.visual.validator import validate_and_decide_retry
+
 from state.plan import PlanInternalState, SectionProcessState
 from agents.plan_core.logger import get_logger, LogLevel
 
@@ -124,96 +121,13 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     return state
 
 
-# ===========================
-# 시각화 처리 노드들 (PlanInternalState에 맞춰 조정)
-# ===========================
-
-def visual_decide_node(state: PlanInternalState) -> PlanInternalState:
-    logger = get_logger()
-    visual_state = state["temp_visual_state"]
-    visual_state = decide_node(visual_state)
-    visual_state = generate_visual_meta(visual_state)
-    
-    logger.log_visual_decision(visual_state["section_id"], visual_state.get("decision", {}))
-    state["temp_visual_state"] = visual_state
-    return state
 
 
-def visual_generate_node(state: PlanInternalState) -> PlanInternalState:
-    logger = get_logger()
-    visual_state = state["temp_visual_state"]
-    decision = Decision(**visual_state.get("decision", {}))
-    
-    visual_type = None
-    try:
-        if decision.needs_chart:
-            visual_type = "chart"
-            visual_state = render_chart(visual_state)
-        elif decision.needs_diagram:
-            visual_type = "diagram"
-            visual_state = render_diagram(visual_state)
-        elif decision.needs_table:
-            visual_type = "table"
-            visual_state = render_table(visual_state)
-        elif decision.needs_image_search:
-            visual_type = "image_search"
-            visual_state = image_search(visual_state)
-        elif decision.needs_image_gen:
-            visual_type = "image_gen"
-            visual_state = image_gen(visual_state)
-    except Exception as e:
-        logger.log(LogLevel.ERROR, "visual_generation", f"시각화 생성 실패: {e}")
-    
-    if visual_type:
-        logger.log_visual_generation(visual_state["section_id"], visual_type, True)
-    
-    state["temp_visual_state"] = visual_state
-    return state
-
-
-def visual_validate_node(state: PlanInternalState) -> PlanInternalState:
-    logger = get_logger()
-    visual_state = state["temp_visual_state"]
-    
-    should_retry, result = validate_and_decide_retry(
-        section_text=visual_state["section_text"],
-        section_title=visual_state["section_title"],
-        state=visual_state
-    )
-    
-    logger.log_validation(visual_state["section_id"], result.is_valid, result.score, result.reason)
-    visual_state["validation_result"] = result.model_dump()
-    visual_state["should_retry"] = should_retry
-    
-    if should_retry:
-        visual_state["retry_count"] = visual_state.get("retry_count", 0) + 1
-    
-    state["temp_visual_state"] = visual_state
-    return state
-
-
-def visual_finalize_node(state: PlanInternalState) -> PlanInternalState:
-    visual_state = state["temp_visual_state"]
-    if visual_state.get("visual_meta"):
-        artifact = create_visual_artifact(
-            section_number=visual_state["section_id"],
-            state=visual_state
-        )
-        if artifact:
-            state["visual_artifacts"].append(artifact.model_dump())
-    return state
 
 
 # ===========================
 # 라우팅 및 보조 노드
 # ===========================
-
-def route_visual_validation(state: PlanInternalState) -> str:
-    visual_state = state["temp_visual_state"]
-    if visual_state.get("should_retry", False):
-        return "visual_generate"
-    return "visual_finalize"
-
 
 def increment_section_index_node(state: PlanInternalState) -> PlanInternalState:
     state["current_section_index"] += 1
@@ -221,15 +135,6 @@ def increment_section_index_node(state: PlanInternalState) -> PlanInternalState:
     if _pbar:
         _pbar.update(1)
     return state
-
-
-def check_needs_visual(state: PlanInternalState) -> str:
-    visual_state = state["temp_visual_state"]
-    decision = Decision(**visual_state.get("decision", {}))
-    if any([decision.needs_table, decision.needs_diagram, decision.needs_chart, 
-            decision.needs_image_search, decision.needs_image_gen]):
-        return "visual_generate"
-    return "next_section"
 
 
 def route_next_section(state: PlanInternalState) -> str:
