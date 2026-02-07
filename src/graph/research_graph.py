@@ -98,10 +98,21 @@ def run_research_for_plan(state: dict) -> dict:
         search_results = result.get('search_results', [])
         evidence_list = []
         for item in search_results:
-            if hasattr(item, 'content'):
-                evidence_list.append(item.content)
-            elif isinstance(item, dict):
-                evidence_list.append(item.get('content', ''))
+            # item is SearchItem (object) or dict
+            if isinstance(item, dict):
+                title = item.get('title', 'No Title')
+                url = item.get('url', '')
+                content = item.get('content', '')
+            else:
+                title = getattr(item, 'title', 'No Title')
+                url = getattr(item, 'url', '')
+                content = getattr(item, 'content', '')
+            
+            evidence_list.append({
+                "title": title,
+                "url": url,
+                "content": content
+            })
         
         # 분석 결과 추출
         analysis = result.get('analysis_result', '')

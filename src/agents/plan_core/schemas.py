@@ -39,6 +39,7 @@ class PlanSection(BaseModel):
     section_number: str
     title: str
     content: str = Field(..., description="마크다운 형식의 섹션 본문")
+    evidence: List[str] = Field(default_factory=list, description="참고한 리서치 자료/근거")
 
 
 class GeneratedPlan(BaseModel):

@@ -205,8 +205,13 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     # generator.generate_section_from_blueprint()의 evidence 파라미터로 전달하면
     # 프롬프트에 "[참고용 리서치 자료]"로 포함되어 팩트 기반 작성 유도
     # =====================================================
-    analysis_result = research_state.get("analysis_result", "")
-    evidence_store = research_state.get("evidence_store", [])
+    # [Fix] Stale Evidence 방지: 현재 섹션에 대한 리서치인지 확인
+    if research_state.get("section_context") != blueprint_item.title:
+        evidence_store = []
+        analysis_result = ""
+    else:
+        analysis_result = research_state.get("analysis_result", "")
+        evidence_store = research_state.get("evidence_store", [])
     
     # [Log] 리서치 결과 로깅 (섹션 생성 시작 전)
     if evidence_store:
@@ -221,18 +226,40 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     logger.log_section_generation(str(current_index + 1), blueprint_item.title, "blueprint")
     
     # evidence 리스트 구성: 분석 결과 + 개별 검색 결과
-    evidence_for_section = []
+    evidence_for_prompt = []
+    evidence_for_record = []
+
     if analysis_result:
-        evidence_for_section.append(f"[분석 요약]\n{analysis_result}")
+        evidence_for_prompt.append(f"[분석 요약]\n{analysis_result}")
+
     if evidence_store:
-        evidence_for_section.extend(evidence_store)
+        for item in evidence_store:
+            if isinstance(item, dict):
+                # New struct ({title, url, content})
+                title = item.get("title", "No Title")
+                url = item.get("url", "")
+                content = item.get("content", "")
+                
+                # 프롬프트에는 내용 전달
+                evidence_for_prompt.append(f"Title: {title}\nContent: {content}")
+                
+                # 기록(사이드바)에는 링크 전달
+                if url:
+                    evidence_for_record.append(f"[{title}]({url})")
+                else:
+                    evidence_for_record.append(title)
+            else:
+                # Fallback (legacy string)
+                evidence_for_prompt.append(str(item))
+                evidence_for_record.append(str(item)[:50] + "...")
     
     section = generate_section_from_blueprint(
         structured_input=structured_input,
         blueprint_item=blueprint_item,
         section_index=current_index,
         previous_sections=previous_sections,
-        evidence=evidence_for_section  # Research 결과 전달
+        evidence=evidence_for_prompt,  # Research 결과 전달 (Prompt용)
+        evidence_for_record=evidence_for_record # 저장용 (Sidebar용)
     )
     
     print(f"[출력] {section.content[:50].replace('\\n', ' ')}...")
@@ -287,9 +314,12 @@ def process_visual_node(state: PlanInternalState) -> PlanInternalState:
             state["visual_artifacts"] = []
             
         state["visual_artifacts"].append(artifact)
-        logger.log(LogLevel.INFO, "visual_processor", f"시각화 생성 완료: {artifact.get('visual_type')}", {
+        
+        # [Fix] visual_type은 meta 안에 있음
+        visual_type = artifact.get("meta", {}).get("visual_type")
+        logger.log(LogLevel.INFO, "visual_processor", f"시각화 생성 완료: {visual_type}", {
             "section_title": section_title,
-            "visual_type": artifact.get("visual_type")
+            "visual_type": visual_type
         })
     else:
         logger.log(LogLevel.INFO, "visual_processor", "시각화 불필요 판정", {"section_title": section_title})

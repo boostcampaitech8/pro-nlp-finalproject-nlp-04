@@ -79,7 +79,15 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
         from pathlib import Path
         
         # Mermaid 코드 인코딩
-        graph_bytes = response.content.encode("utf8")
+        # [Fix] 마크다운 코드 블록 제거 (```mermaid ... ```)
+        raw_code = response.content.strip()
+        if raw_code.startswith("```"):
+            raw_code = raw_code.split("```")[1]
+            if raw_code.startswith("mermaid"):
+                raw_code = raw_code[7:]
+        raw_code = raw_code.strip()
+        
+        graph_bytes = raw_code.encode("utf8")
         base64_bytes = base64.urlsafe_b64encode(graph_bytes)
         base64_string = base64_bytes.decode("ascii")
         

@@ -28,7 +28,8 @@ def generate_section_from_blueprint(
     blueprint_item: BlueprintItem,
     section_index: int,
     previous_sections: List[PlanSection] = None,
-    evidence: List[str] = None
+    evidence: List[str] = None,
+    evidence_for_record: List[str] = None
 ) -> PlanSection:
     """
     Blueprint 항목을 기반으로 섹션을 생성합니다.
@@ -115,7 +116,8 @@ def generate_section_from_blueprint(
     return PlanSection(
         section_number=section_number,
         title=blueprint_item.title,
-        content=content
+        content=content,
+        evidence=evidence_for_record or evidence
     )
 
 
