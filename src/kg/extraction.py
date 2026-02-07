@@ -13,7 +13,11 @@ from .config import (
     MIN_CONFIDENCE,
     EXTRACTOR_VERSION,
     ENTITY_TYPES,
-    RELATION_TYPES
+    RELATION_TYPES,
+    VALID_ENTITY_TYPES,
+    TYPE_CONSTRAINTS,
+    RELATION_TRIGGERS,
+    CONFIDENCE_THRESHOLDS
 )
 from .ner import _extract_ner
 
@@ -98,6 +102,93 @@ def _clean_entity_name(name: str) -> str:
     
     return name.strip()
 
+def _normalize_entity_name(name: str) -> str:
+    """
+    엔티티 이름 정규화 (대소문자)
+    
+    한글: 그대로
+    영어: Title Case (각 단어의 첫 글자만 대문자)
+    
+    예:
+        "openai" → "Openai"
+        "OPENAI" → "Openai"
+        "samsung electronics" → "Samsung Electronics"
+    """
+    # 한글이 포함되어 있으면 그대로
+    if re.search(r'[가-힣]', name):
+        return name
+    
+    # 영어만 있으면 Title Case
+    return name.title()
+
+
+def _validate_type_constraint(relation: str, subject_type: str, object_type: str) -> bool:
+    """
+    Type Constraint 검증
+    
+    관계가 허용하는 엔티티 타입 조합인지 확인
+    
+    Args:
+        relation: 관계 타입
+        subject_type: 주체 엔티티 타입
+        object_type: 객체 엔티티 타입
+    
+    Returns:
+        True: 허용됨
+        False: 불가능한 조합
+    
+    예:
+        "works_for", "Person", "Organization" → True
+        "works_for", "Concept", "Product" → False
+    """
+    constraint = TYPE_CONSTRAINTS.get(relation)
+    
+    if not constraint:
+        # 스키마에 없는 관계는 통과 (유연성)
+        return True
+    
+    if subject_type not in constraint["subject_types"]:
+        return False
+    
+    if object_type not in constraint["object_types"]:
+        return False
+    
+    return True
+
+
+def _validate_trigger_words(relation: str, sentence: str) -> bool:
+    """
+    Trigger Word 검증
+    
+    문장에 관계를 나타내는 trigger word가 있는지 확인
+    
+    Args:
+        relation: 관계 타입
+        sentence: 원본 문장
+    
+    Returns:
+        True: trigger word 있음 (또는 체크 불필요)
+        False: trigger word 없음 → 제거해야 함
+    
+    예:
+        "works_for", "He works at Google" → True (trigger: "works")
+        "works_for", "He likes Google" → False (trigger 없음)
+    """
+    triggers = RELATION_TRIGGERS.get(relation)
+    
+    if not triggers:
+        # trigger 정의 없는 관계는 통과 (related_to 등)
+        return True
+    
+    sentence_lower = sentence.lower()
+    
+    # 하나라도 있으면 통과
+    for trigger in triggers:
+        if trigger.lower() in sentence_lower:
+            return True
+    
+    # 모든 trigger가 없으면 False
+    return False
 
 def _call_llm(prompt: str, max_retries: int = 3) -> str:
     """
@@ -261,6 +352,9 @@ def extract_triplets_from_text(
     if not sentences:
         return []
     
+    # 원본 문장 저장 (trigger 검증용)
+    original_sentences = sentences.copy()
+
     # 2. NER 추출 (Hallucination 방지)
     ner_entities = _extract_ner(text, lang=lang)
     
@@ -293,6 +387,35 @@ def extract_triplets_from_text(
     # 강화된 필터링
     filtered = []
     for t in triplets:
+        # ===== 필터 1: Entity Type 검증 ★★★ =====
+        subject_type = t.get('subject_type', 'Concept')
+        object_type = t.get('object_type', 'Concept')
+        
+        if subject_type not in VALID_ENTITY_TYPES:
+            continue
+        
+        if object_type not in VALID_ENTITY_TYPES:
+            continue
+        
+        # ===== 필터 2: Type Constraint 검증 ★★★ =====
+        relation = t.get('relation', '')
+        
+        if not _validate_type_constraint(relation, subject_type, object_type):
+            continue
+        
+        # ===== 필터 3: Confidence 차등 임계값 =====
+        threshold = CONFIDENCE_THRESHOLDS.get(relation, CONFIDENCE_THRESHOLDS["default"])
+        
+        if t.get('confidence', 0) < threshold:
+            continue
+        
+        # ===== 필터 4: 엔티티 이름 정제 및 정규화 ★★★ =====
+        subject = _clean_entity_name(t.get('subject', ''))
+        obj = _clean_entity_name(t.get('object', ''))
+        
+        # 대소문자 정규화
+        subject = _normalize_entity_name(subject)
+        obj = _normalize_entity_name(obj)
         # 신뢰도 필터
         if t.get('confidence', 0) < MIN_CONFIDENCE:
             continue
@@ -338,11 +461,17 @@ def extract_triplets_from_text(
             t.get('object_type') == "Concept"):
             # 둘 다 Concept이면서 related_to는 너무 모호함
             continue
+        # ===== 필터 6: Trigger Word 검증 ★★★ =====
+        # 문장 전체를 하나로 합쳐서 검사
+        full_text = " ".join(original_sentences)
         
+        if not _validate_trigger_words(relation, full_text):
+            continue
         # ===== 통과 =====
-        
         t['subject'] = subject
         t['object'] = obj
+        t['subject_type'] = subject_type
+        t['object_type'] = object_type
         t['source_url'] = source_url
         t['domain'] = domain
         t['crawl_time'] = crawl_time or datetime.now().isoformat()

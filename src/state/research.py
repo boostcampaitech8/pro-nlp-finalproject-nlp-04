@@ -48,7 +48,6 @@ class ResearchState(BaseModel):
     
     KG 통합 필드:
         - kg_cached_info: 검색 전 KG 조회 결과 (캐시)
-        - kg_extraction_summary: 트리플 추출 요약
     """
     
     # 기존 필드
@@ -67,8 +66,7 @@ class ResearchState(BaseModel):
         default="",
         description="(Deprecated) 하위 호환용"
     )
-    kg_extraction_summary: str = Field(default="")
-    analysis_file_path: str = Field(default="")
+
     need_search: bool = Field(
         default=True,
         description="Tavily 검색이 필요한지 여부 (KG 정보가 충분하면 False)"

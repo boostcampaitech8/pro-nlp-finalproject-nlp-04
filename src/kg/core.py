@@ -6,6 +6,7 @@ import sqlite3
 import networkx as nx
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
+import re
 
 from .config import (
     KG_PICKLE_PATH,
@@ -15,6 +16,17 @@ from .config import (
     EXTRACTOR_VERSION
 )
 
+def _normalize_entity_name(name: str) -> str:
+    """
+    엔티티 이름 정규화 (대소문자)
+    
+    한글: 그대로
+    영어: Title Case
+    """
+    if re.search(r'[가-힣]', name):
+        return name
+    
+    return name.title()
 
 # ============================================================================
 # KG 저장소 (NetworkX MultiDiGraph)
@@ -149,6 +161,8 @@ class KnowledgeGraphStore:
             )
         """
         # 1. 관계 정규화 (Global Core Ontology 유지)
+        subject = _normalize_entity_name(subject)
+        obj = _normalize_entity_name(obj)
         relation = self.normalize_relation(relation)
         
         # 2. 중복 체크 (KG 증강 시 중복 방지)
@@ -223,6 +237,9 @@ class KnowledgeGraphStore:
             # "tech" 도메인만 필터링
             info = kg.get_entity_info("OpenAI", domain="tech")
         """
+        #조회 시에도 정규화 적용
+        name = _normalize_entity_name(name)
+
         if not self.graph.has_node(name):
             return []
         
@@ -297,6 +314,9 @@ class KnowledgeGraphStore:
             path = kg.find_path("OpenAI", "ChatGPT")
             # [("OpenAI", "produces", "ChatGPT")]
         """
+        entity_a = _normalize_entity_name(entity_a)
+        entity_b = _normalize_entity_name(entity_b)
+
         if not self.graph.has_node(entity_a) or not self.graph.has_node(entity_b):
             return None
         
@@ -347,7 +367,8 @@ class KnowledgeGraphStore:
             entities = kg.search_entities("OpenAI", top_k=5)
             # ["OpenAI", "OpenAI DevDay", ...]
         """
-        query_lower = query.lower()
+        query_normalized = _normalize_entity_name(query)
+        query_lower = query_normalized.lower()
         matches = [
             node for node in self.graph.nodes()
             if query_lower in node.lower()

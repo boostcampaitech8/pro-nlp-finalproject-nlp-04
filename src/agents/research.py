@@ -79,7 +79,7 @@ def search_with_tavily(state: ResearchState):
 
 def analysis_search_results(state: ResearchState):
     """
-    ★★★ 분석 노드 (완전 개선 버전) ★★★
+    분석 노드
     
     개선사항:
         1. KG 사용 여부 명시
@@ -196,7 +196,7 @@ def analysis_search_results(state: ResearchState):
 [사용자가 실제로 어떻게 활용할 수 있는지 구체적으로 제시]
 
 ## 추가 고려사항
-[관련 정보, 주의사항, 참고 사항]
+[관련 정보, 주의사항, 참고 사항등 구체적으로 제시]
 ```
 
 **Knowledge Graph(KG) 정보 활용 시**:
@@ -231,134 +231,139 @@ def analysis_search_results(state: ResearchState):
         "question": question,
         "context": full_context
     })
+
+    # # 6. 분석 결과 파일 저장 (KG 활용 추적 포함)
     
-    # ============================================================================
-    # 6. 분석 결과 파일 저장 (KG 활용 추적 포함)
-    # ============================================================================
+    # output_dir = Path(__file__).parent.parent.parent / "data" / "analysis_results"
+    # output_dir.mkdir(parents=True, exist_ok=True)
     
-    output_dir = Path(__file__).parent.parent.parent / "data" / "analysis_results"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # safe_question = "".join(c if c.isalnum() or c in (' ', '_') else '_' for c in question[:30])
+    # filename = f"{timestamp}_{safe_question}.md"
+    # filepath = output_dir / filename
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_question = "".join(c if c.isalnum() or c in (' ', '_') else '_' for c in question[:30])
-    filename = f"{timestamp}_{safe_question}.md"
-    filepath = output_dir / filename
-    
-    with open(filepath, 'w', encoding='utf-8') as f:
-        # 헤더
-        f.write(f"# 분석 결과 보고서\n\n")
-        f.write(f"**질문**: {question}\n\n")
-        f.write(f"**생성 시간**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+    # with open(filepath, 'w', encoding='utf-8') as f:
+    #     # 헤더
+    #     f.write(f"# 분석 결과 보고서\n\n")
+    #     f.write(f"**질문**: {question}\n\n")
+    #     f.write(f"**생성 시간**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         
-        # ★★★ 정보 출처 명시 ★★★
-        f.write(f"**정보 출처**: ")
-        sources = []
-        if kg_used:
-            sources.append(f"Knowledge Graph ({len(kg_result.found_triplets)}개 트리플)")
-        if search_used:
-            sources.append(f"Tavily 검색 ({len(search_results)}개 결과)")
+    #     # ★★★ 정보 출처 명시 ★★★
+    #     f.write(f"**정보 출처**: ")
+    #     sources = []
+    #     if kg_used:
+    #         sources.append(f"Knowledge Graph ({len(kg_result.found_triplets)}개 트리플)")
+    #     if search_used:
+    #         sources.append(f"Tavily 검색 ({len(search_results)}개 결과)")
         
-        if sources:
-            f.write(" + ".join(sources) + "\n\n")
-        else:
-            f.write("정보 없음\n\n")
+    #     if sources:
+    #         f.write(" + ".join(sources) + "\n\n")
+    #     else:
+    #         f.write("정보 없음\n\n")
         
-        f.write(f"---\n\n")
+    #     f.write(f"---\n\n")
         
-        # ============================================================================
-        # KG 활용 현황 섹션
-        # ============================================================================
+    #     # ============================================================================
+    #     # KG 활용 현황 섹션
+    #     # ============================================================================
         
-        f.write(f"## 📊 Knowledge Graph 활용 현황\n\n")
+    #     f.write(f"## 📊 Knowledge Graph 활용 현황\n\n")
         
-        if kg_used:
-            f.write(f"### 조회된 엔티티 ({len(kg_result.queried_entities)}개)\n\n")
-            f.write(f"{', '.join(kg_result.queried_entities[:20])}\n\n")
+    #     if kg_used:
+    #         f.write(f"### 조회된 엔티티 ({len(kg_result.queried_entities)}개)\n\n")
+    #         f.write(f"{', '.join(kg_result.queried_entities[:20])}\n\n")
             
-            if len(kg_result.queried_entities) > 20:
-                f.write(f"... 외 {len(kg_result.queried_entities) - 20}개\n\n")
+    #         if len(kg_result.queried_entities) > 20:
+    #             f.write(f"... 외 {len(kg_result.queried_entities) - 20}개\n\n")
             
-            f.write(f"### 발견된 지식 ({len(kg_result.found_triplets)}개 트리플)\n\n")
-            f.write(f"| 주체 | 관계 | 객체 | 신뢰도 | 출처 |\n")
-            f.write(f"|------|------|------|--------|------|\n")
+    #         f.write(f"### 발견된 지식 ({len(kg_result.found_triplets)}개 트리플)\n\n")
+    #         f.write(f"| 주체 | 관계 | 객체 | 신뢰도 | 출처 |\n")
+    #         f.write(f"|------|------|------|--------|------|\n")
             
-            for t in kg_result.found_triplets[:20]:
-                # 출처 URL 짧게
-                if t.source_url:
-                    source_parts = t.source_url.split('/')
-                    source_short = source_parts[2] if len(source_parts) > 2 else t.source_url[:20]
-                else:
-                    source_short = "-"
+    #         for t in kg_result.found_triplets[:20]:
+    #             if getattr(t, "source_url", None):
+    #                 source = t.source_url
+    #                 # 텍스트로 보여줄 짧은 레이블: 도메인 우선, 없으면 앞부분 자르기
+    #                 try:
+    #                     domain_label = source.split('/')[2]
+    #                 except Exception:
+    #                     domain_label = source if len(source) <= 60 else source[:60] + "..."
+    #                 source_md = f"[{domain_label}]({source})"
+    #             else:
+    #                 source_md = "-"
+
+    #             subj_text = (t.subject[:50] + '...') if len(t.subject) > 50 else t.subject
+    #             obj_text = (t.object[:50] + '...') if len(t.object) > 50 else t.object
+
                 
-                f.write(f"| {t.subject[:20]} | {t.relation} | {t.object[:20]} | {t.confidence:.2f} | {source_short} |\n")
+    #             f.write(f"| {subj_text} | {t.relation} | {obj_text} | {t.confidence:.2f} | {source_md} |\n")
             
-            if len(kg_result.found_triplets) > 20:
-                f.write(f"\n... 외 {len(kg_result.found_triplets) - 20}개\n\n")
+    #         if len(kg_result.found_triplets) > 20:
+    #             f.write(f"\n... 외 {len(kg_result.found_triplets) - 20}개\n\n")
             
-            f.write(f"\n**✅ KG 활용도**: 분석에 {len(kg_result.found_triplets)}개의 기존 지식이 사용되었습니다.\n\n")
-        else:
-            f.write(f"**KG 정보 없음**: 이번 분석은 새로운 검색 결과만을 기반으로 합니다.\n\n")
+    #         f.write(f"\n**✅ KG 활용도**: 분석에 {len(kg_result.found_triplets)}개의 기존 지식이 사용되었습니다.\n\n")
+    #     else:
+    #         f.write(f"**KG 정보 없음**: 이번 분석은 새로운 검색 결과만을 기반으로 합니다.\n\n")
             
-            if search_used:
-                f.write(f"(검색 결과가 KG에 저장되어 다음 실행 시 활용 가능합니다.)\n\n")
+    #         if search_used:
+    #             f.write(f"(검색 결과가 KG에 저장되어 다음 실행 시 활용 가능합니다.)\n\n")
         
-        f.write(f"---\n\n")
+    #     f.write(f"---\n\n")
         
-        # ============================================================================
-        # 검색 결과 요약 섹션
-        # ============================================================================
+    #     # ============================================================================
+    #     # 검색 결과 요약 섹션
+    #     # ============================================================================
         
-        if search_used:
-            f.write(f"## 🔍 검색 결과 요약\n\n")
-            f.write(f"총 {len(search_results)}개의 검색 결과 중 상위 5개를 분석에 사용했습니다.\n\n")
+    #     if search_used:
+    #         f.write(f"## 🔍 검색 결과 요약\n\n")
+    #         f.write(f"총 {len(search_results)}개의 검색 결과 중 상위 5개를 분석에 사용했습니다.\n\n")
             
-            results_top5 = sorted(search_results, key=lambda x: x.score, reverse=True)[:5]
-            for idx, r in enumerate(results_top5, 1):
-                f.write(f"{idx}. **{r.title}** (점수: {r.score:.2f})\n")
-                f.write(f"   - URL: {r.url}\n\n")
+    #         results_top5 = sorted(search_results, key=lambda x: x.score, reverse=True)[:5]
+    #         for idx, r in enumerate(results_top5, 1):
+    #             f.write(f"{idx}. **{r.title}** (점수: {r.score:.2f})\n")
+    #             f.write(f"   - URL: {r.url}\n\n")
             
-            f.write(f"---\n\n")
+    #         f.write(f"---\n\n")
         
-        # ============================================================================
-        # 분석 내용
-        # ============================================================================
+    #     # ============================================================================
+    #     # 분석 내용
+    #     # ============================================================================
         
-        f.write(f"## 📝 분석 내용\n\n")
-        f.write(analysis_result.content)
+    #     f.write(f"## 📝 분석 내용\n\n")
+    #     f.write(analysis_result.content)
         
-        # ============================================================================
-        # 메타데이터 푸터
-        # ============================================================================
+    #     # ============================================================================
+    #     # 메타데이터 푸터
+    #     # ============================================================================
         
-        f.write(f"\n\n---\n\n")
-        f.write(f"## 📋 메타데이터\n\n")
-        f.write(f"- **KG 트리플 사용**: {len(kg_result.found_triplets)}개\n")
-        f.write(f"- **검색 결과 사용**: {len(search_results) if search_used else 0}개\n")
-        f.write(f"- **생성 모델**: {MODEL_NAME_PRO}\n")
-        f.write(f"- **생성 시각**: {datetime.now().isoformat()}\n")
+    #     f.write(f"\n\n---\n\n")
+    #     f.write(f"## 📋 메타데이터\n\n")
+    #     f.write(f"- **KG 트리플 사용**: {len(kg_result.found_triplets)}개\n")
+    #     f.write(f"- **검색 결과 사용**: {len(search_results) if search_used else 0}개\n")
+    #     f.write(f"- **생성 모델**: {MODEL_NAME_PRO}\n")
+    #     f.write(f"- **생성 시각**: {datetime.now().isoformat()}\n")
     
-    # ============================================================================
-    # 터미널 출력
-    # ============================================================================
+    # # ============================================================================
+    # # 터미널 출력
+    # # ============================================================================
     
-    print(f"\n✅ 분석 결과 저장: {filepath}")
+    # print(f"\n✅ 분석 결과 저장: {filepath}")
     
-    if kg_used and search_used:
-        print(f"   정보 출처: KG ({len(kg_result.found_triplets)}개) + Tavily ({len(search_results)}개)")
-    elif kg_used:
-        print(f"   정보 출처: KG만 ({len(kg_result.found_triplets)}개 트리플)")
-    elif search_used:
-        print(f"   정보 출처: Tavily만 ({len(search_results)}개 결과)")
-    else:
-        print(f"   정보 출처: 없음")
+    # if kg_used and search_used:
+    #     print(f"   정보 출처: KG ({len(kg_result.found_triplets)}개) + Tavily ({len(search_results)}개)")
+    # elif kg_used:
+    #     print(f"   정보 출처: KG만 ({len(kg_result.found_triplets)}개 트리플)")
+    # elif search_used:
+    #     print(f"   정보 출처: Tavily만 ({len(search_results)}개 결과)")
+    # else:
+    #     print(f"   정보 출처: 없음")
     
     # ============================================================================
     # 7. 반환 (State 업데이트)
     # ============================================================================
     
     return {
-        "analysis_result": analysis_result.content,
-        "analysis_file_path": str(filepath)
+        "analysis_result": analysis_result.content
     }
 
 

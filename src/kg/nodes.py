@@ -37,27 +37,70 @@ def init_tavily_db():
 
 
 def kg_query_node(state):
+    """
+    [개선] KG 조회 노드
+    """
     from state.research import ResearchState, KGQueryResult, KGTriple
+    from .utils import (
+        extract_keywords, 
+        remove_stopwords, 
+        expand_keywords,  # ★ 추가
+        infer_domain, 
+        calculate_relevance_score
+    )
+    from .core import KnowledgeGraphStore
+    from .tools import kg_search_text, kg_get_entity
     
     question = state.question
     print(f"\n--- [KG Query Node] KG에서 '{question}' 관련 정보 조회 ---")
     
-    keywords = [w for w in question.split() if len(w) > 1][:5]
+    # 1. 키워드 추출
+    raw_keywords = extract_keywords(question)
+    filtered_keywords = remove_stopwords(raw_keywords)
     
+    # ★★★ 2. 키워드 확장 (새로 추가) ★★★
+    expanded_keywords = expand_keywords(filtered_keywords)
+    keywords = expanded_keywords[:10]  # 최대 10개
+    
+    print(f"   추출된 키워드: {filtered_keywords}")
+    print(f"   확장된 키워드: {expanded_keywords}")
+    
+    # 3. 도메인 추론
+    question_domain = infer_domain(question)
+    print(f"   추론된 도메인: {question_domain}")
+    
+    # 4. 엔티티 검색
     queried_entities = []
     found_triplets_raw = []
     
+    kg_store = KnowledgeGraphStore()
+    
     for keyword in keywords:
-        entities = kg_search_text(keyword, top_k=3)
+        entities = kg_search_text(keyword, top_k=10)
         
         for entity in entities:
+            # 5. 관련성 점수 계산
+            relevance_score = calculate_relevance_score(
+                entity, filtered_keywords, question_domain, kg_store
+            )
+            
+            # 6. 관련성 임계값 필터링
+            MIN_RELEVANCE = 0.25  # 0.3 → 0.25로 낮춤 (더 많이 검색)
+            if relevance_score < MIN_RELEVANCE:
+                continue
+            
             if entity not in queried_entities:
                 queried_entities.append(entity)
             
-            info = kg_get_entity(entity, max_hops=1)
+            # 7. 엔티티 정보 조회 (도메인 필터)
+            info = kg_get_entity(entity, max_hops=1, domain=question_domain)
+            if not info and question_domain != "general":
+                info = kg_get_entity(entity, max_hops=1, domain=None)
+            
             if info:
                 found_triplets_raw.extend(info)
     
+    # (나머지 코드 동일...)
     unique_triplets = []
     seen = set()
     for r in found_triplets_raw:
