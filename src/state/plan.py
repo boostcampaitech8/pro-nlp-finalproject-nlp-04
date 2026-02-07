@@ -29,4 +29,5 @@ class PlanInternalState(GlobalState):
     visual_artifacts: Annotated[List[Dict[str, Any]], "생성된 시각화 아티팩트 리스트"]
     final_markdown: Annotated[str, "조합된 최종 마크다운"]
     output_path: Annotated[str, "파일 저장 경로"]
+    plan_status: Annotated[str, "기획서 생성 상태 (IN_PROGRESS, WAITING_FOR_RESEARCH, COMPLETED)"]
 

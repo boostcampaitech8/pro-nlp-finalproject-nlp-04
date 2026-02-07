@@ -17,7 +17,6 @@ from agents.plan_core.schemas import (
 )
 from prompts.plan_prompts import SECTION_GENERATION_SYSTEM_PROMPT, SECTION_GENERATION_USER_PROMPT
 from prompts.edit_prompts import PARTIAL_EDIT_SYSTEM_PROMPT, PARTIAL_EDIT_USER_PROMPT
-# from agents.plan_core.visual.schemas import VisualMeta, VisualArtifact
 
 
 # ===========================
@@ -28,16 +27,19 @@ def generate_section_from_blueprint(
     structured_input: StructuredInput,
     blueprint_item: BlueprintItem,
     section_index: int,
-    previous_sections: List[PlanSection] = None
+    previous_sections: List[PlanSection] = None,
+    evidence: List[str] = None
 ) -> PlanSection:
     """
     Blueprint 항목을 기반으로 섹션을 생성합니다.
     - guideline + content(참고 컨텍스트) + 이전 섹션 컨텍스트로 LLM 생성
+    - evidence가 있으면 프롬프트에 포함하여 팩트 기반 작성 유도
     """
     section_number = str(section_index + 1)
     
     # content가 없으면 LLM으로 생성
     previous_sections = previous_sections or []
+    evidence = evidence or []
     
     # 전체 목차
     toc_text = "\n".join([f"{i+1}. {title}" for i, title in enumerate(structured_input.toc)])
@@ -63,14 +65,21 @@ def generate_section_from_blueprint(
     guideline = blueprint_item.guideline or "자유롭게 작성"
     context_hint = blueprint_item.content or ""
     
-    # 유저 프롬프트 생성 (content 있으면 참고 컨텍스트로 추가)
+    # 유저 프롬프트 생성
     user_prompt = SECTION_GENERATION_USER_PROMPT.format(
         section_number=section_number,
         title=blueprint_item.title,
         guideline=guideline
     )
+    
+    # 리서치 결과(Evidence) 추가
+    if evidence:
+        evidence_text = "\n".join(evidence)
+        user_prompt += f"\n\n[참고용 리서치 자료] (팩트와 수치를 적극 활용하세요):\n{evidence_text}"
+    
+    # Blueprint 컨텍스트 추가
     if context_hint:
-        user_prompt += f"\n\n참고 컨텍스트 (반드시 더 상세하게 확장할 것):\n{context_hint}"
+        user_prompt += f"\n\n[기존 기획 메모] (반드시 더 상세하게 확장할 것):\n{context_hint}"
     
     messages = [
         SystemMessage(content=system_prompt),
@@ -243,4 +252,3 @@ def generate_partial_edit(
     response = chat.invoke(messages)
     
     return response.content.strip()
-
