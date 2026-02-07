@@ -117,7 +117,16 @@ def generate_visual_meta(state: RouterState) -> RouterState:
                 content = content[4:]
         content = content.strip()
         meta_data = json.loads(content)
-    except:
+        
+        # [Fix] LLM이 리스트를 반환하는 경우 처리
+        if isinstance(meta_data, list):
+            if len(meta_data) > 0 and isinstance(meta_data[0], dict):
+                meta_data = meta_data[0]
+            else:
+                raise ValueError("LLM returned a list without valid dict items")
+                
+    except Exception as e:
+        print(f"[VisualRouter] Meta generation error: {e}")
         meta_data = {
             "purpose": f"{title} 내용을 시각적으로 표현",
             "why_this_format": f"{visual_type} 형식이 이 내용에 적합",

@@ -66,13 +66,55 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
     chat = get_llm(max_tokens=8192, reasoning_effort="low")
     response = chat.invoke(prompt)
     
-    if visual_meta:
-        visual_meta["content"] = response.content
-    
     state.setdefault("artifacts", {})["diagram"] = {
         "content": response.content,
         "type": d.diagram_type.value
     }
+
+    # [Fix] Mermaid 코드를 이미지로 변환하여 저장 (mermaid.ink 사용)
+    try:
+        import base64
+        import requests
+        import os
+        from pathlib import Path
+        
+        # Mermaid 코드 인코딩
+        graph_bytes = response.content.encode("utf8")
+        base64_bytes = base64.urlsafe_b64encode(graph_bytes)
+        base64_string = base64_bytes.decode("ascii")
+        
+        # 이미지 다운로드
+        url = f"https://mermaid.ink/img/{base64_string}"
+        img_response = requests.get(url)
+        
+        if img_response.status_code == 200:
+            # 파일 저장
+            project_root = Path(__file__).parent.parent.parent.parent
+            artifacts_dir = project_root / "output" / "artifacts"
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+            
+            filename = f"diagram_{os.urandom(4).hex()}.png"
+            file_path = artifacts_dir / filename
+            
+            with open(file_path, "wb") as f:
+                f.write(img_response.content)
+                
+            relative_path = f"./artifacts/{filename}"
+            
+            if visual_meta:
+                visual_meta["content"] = f"![{d.diagram_type.value}]({relative_path})"
+                visual_meta["image_path"] = str(file_path)
+                visual_meta["image_url"] = relative_path
+        else:
+            print(f"[VisualGenerator] Mermaid rendering failed: {img_response.status_code}")
+            if visual_meta:
+                visual_meta["content"] = f"```mermaid\n{response.content}\n```"
+
+    except Exception as e:
+        print(f"[VisualGenerator] Diagram image generation error: {e}")
+        if visual_meta:
+            visual_meta["content"] = f"```mermaid\n{response.content}\n```"
+
     state["visual_meta"] = visual_meta
     return state
 
@@ -139,19 +181,17 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         # kaleido가 설치되어 있어야 함
         fig.write_image(str(file_path))
 
-        # [Fix] Base64 인코딩하여 마크다운에 직접 삽입 (Streamlit 호환성)
-        import base64
-        with open(file_path, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+        # [Fix] 파일 경로를 사용하여 마크다운에 삽입 (User Request)
+        # Markdown 파일이 output/에 있고, 이미지가 output/artifacts/에 있으므로
+        # 상대 경로는 ./artifacts/filename 형식이 됨
+        relative_path = f"./artifacts/{filename}"
         
-        base64_src = f"data:image/png;base64,{encoded_string}"
-
         # 4. 메타데이터 업데이트
         if visual_meta:
-            # Base64 이미지 사용
-            visual_meta["content"] = f"![{data.title}]({base64_src})"
+            # 파일 경로 이미지 사용
+            visual_meta["content"] = f"![{data.title}]({relative_path})"
             visual_meta["image_path"] = str(file_path)
-            visual_meta["image_url"] = None 
+            visual_meta["image_url"] = relative_path 
 
         state.setdefault("artifacts", {})["chart"] = {
             "path": str(file_path),
