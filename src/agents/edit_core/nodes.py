@@ -33,6 +33,7 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     
     # content가 존재하고, 범위가 명시된 경우 부분 수정 진행
     if granularity in ["paragraph", "sentence", "block", "subtree"] and range_start is not None:
+
         
         # 현재 컨텐츠 분리 (줄바꿈 기준)
         current_content = target_item.content or ""
