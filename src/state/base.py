@@ -35,6 +35,15 @@ class VisualState(TypedDict):
     last_generated_code: Annotated[str, "마지막 생성 코드"]
     artifacts: Annotated[Dict[str, Any], "생성된 시각화 결과물 (ID 매핑)"]
 
+
+class ResearchRequestState(TypedDict):
+    """Plan Agent에서 Research Agent로의 요청 상태"""
+    needs_research: Annotated[bool, '리서치 필요 여부']
+    queries: Annotated[List[str], '검색 쿼리 목록']
+    section_context: Annotated[str, '리서치 대상 섹션 제목']
+    evidence_store: Annotated[List[str], '수집된 근거 목록']
+
+
 class GlobalState(TypedDict):
     messages: Annotated[list, add_messages]
     awaiting_input: Annotated[bool, '입력 대기 여부']
@@ -46,3 +55,4 @@ class GlobalState(TypedDict):
     edit: EditState
     visual: VisualState
     supervision: SupervisionState
+    research: ResearchRequestState
