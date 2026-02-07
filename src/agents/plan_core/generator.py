@@ -15,6 +15,8 @@ from agents.plan_core.schemas import (
     BlueprintItem,
     StructuredInput,
 )
+from prompts.plan_prompts import SECTION_GENERATION_SYSTEM_PROMPT, SECTION_GENERATION_USER_PROMPT
+from prompts.edit_prompts import PARTIAL_EDIT_SYSTEM_PROMPT, PARTIAL_EDIT_USER_PROMPT
 # from agents.plan_core.visual.schemas import VisualMeta, VisualArtifact
 
 
@@ -60,28 +62,22 @@ def generate_section_from_blueprint(
     persona = persona_map.get(structured_input.planning_style, "시니어 기획 전문가")
 
     # 시스템 프롬프트 생성
-    system_prompt = f"""당신은 {structured_input.planning_style} 스타일의 {persona}입니다.
-    
-    스타일 선택 이유: {structured_input.rationale}
-    
-    작성 규칙:
-    1. 가이드라인과 '기획 스타일'을 충실히 반영하되, 실무 제안서 형식으로 작성
-    2. 본문 내용만 작성 (섹션 제목은 별도로 추가됨)
-    3. 구체적인 수치나 기술 스택을 지어내지 말 것 (미확정 데이터는 전략적으로 표현)
-    4. 불릿 포인트와 강조 기법을 활용하여 가독성 확보
-    
-    전체 목차:
-    {toc_text}"""
-
+    system_prompt = SECTION_GENERATION_SYSTEM_PROMPT.format(
+        planning_style=structured_input.planning_style,
+        persona=persona,
+        rationale=structured_input.rationale,
+        toc_text=toc_text
+    )
 
     guideline = blueprint_item.guideline or "자유롭게 작성"
     
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"""현재 작성할 섹션: {section_number}. {blueprint_item.title}
-    가이드라인: {guideline}
-    
-    본문 내용만 마크다운으로 작성해주세요.""")
+        HumanMessage(content=SECTION_GENERATION_USER_PROMPT.format(
+            section_number=section_number,
+            title=blueprint_item.title,
+            guideline=guideline
+        ))
     ]
     
     # LLM 호출
@@ -230,30 +226,15 @@ def generate_partial_edit(
     - prefix/suffix Context를 고려하여 자연스럽게 이어지도록 생성
     """
     
-    system_prompt = f"""당신은 전문 문서 에디터입니다.
-    사용자의 요청에 따라 문맥을 고려하여 문서의 일부분을 수정해야 합니다.
     
-    **작업 목표**:
-    1. [수정 대상 내용]을 [수정 요청]에 맞게 다시 작성하세요.
-    2. [앞 문맥]과 [뒷 문맥]을 고려하여 글의 흐름이 자연스럽게 이어지도록 하세요.
-    3. 오직 **수정된 결과물**만 출력하세요. (설명이나 인사말 제외)
-    4. {granularity} 단위의 수정임을 감안하여 분량을 조절하세요.
-    """
+    system_prompt = PARTIAL_EDIT_SYSTEM_PROMPT.format(granularity=granularity)
     
-    user_content = f"""
-    [앞 문맥]
-    {prefix_text}
-    
-    [수정 대상 내용]
-    {target_text}
-    
-    [뒷 문맥]
-    {suffix_text}
-    
-    [수정 요청]
-    {instruction}
-    
-    수정된 내용:"""
+    user_content = PARTIAL_EDIT_USER_PROMPT.format(
+        prefix_text=prefix_text,
+        target_text=target_text,
+        suffix_text=suffix_text,
+        instruction=instruction
+    )
     
     messages = [
         SystemMessage(content=system_prompt),

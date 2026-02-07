@@ -4,6 +4,7 @@ Edit Pipeline Nodes
 from agents.plan_core.generator import generate_section_from_blueprint, generate_partial_edit
 from agents.plan_core.schemas import StructuredInput, BlueprintItem
 from state.edit import EditInternalState
+from prompts.edit_prompts import SECTION_REGENERATION_GUIDELINE_TEMPLATE
 
 def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     """
@@ -87,14 +88,18 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     # 2. Instruction Injection
     # 기존 가이드라인 뒤에 유저 요청을 강력하게 붙입니다.
     original_guideline = target_item.guideline or ""
-    injected_guideline = f"{original_guideline}\n\n[USER REVISION REQEUST]: {state['instruction']}"
     
     # Feedback Injection (If Retry)
+    feedback_section = ""
     if state.get("feedback"):
-        injected_guideline += f"\n\n[PREVIOUS FEEDBACK (Must Fix)]: {state['feedback']}"
+        feedback_section = f"\n\n[PREVIOUS FEEDBACK (Must Fix)]: {state['feedback']}"
         print(f"[Edit] 피드백 반영하여 재생성: {state['feedback']}")
-    
-    injected_guideline += "\n(기존 기획의 톤앤매너와 양식을 유지하면서, 위 요청 사항을 자연스럽게 반영하여 섹션을 업데이트하세요.)"
+        
+    injected_guideline = SECTION_REGENERATION_GUIDELINE_TEMPLATE.format(
+        original_guideline=original_guideline,
+        instruction=state['instruction'],
+        feedback_section=feedback_section
+    )
     
     # 수정된 아이템 생성 (Generator에 전달용)
     modified_item = BlueprintItem(

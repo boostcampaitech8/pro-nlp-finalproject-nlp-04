@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from models.llm import get_llm
 from agents.visual_core.schemas import Decision, VisualMeta, VisualArtifact, ChartType
+from prompts.visual_prompts import TABLE_RENDER_PROMPT, DIAGRAM_RENDER_PROMPT, CHART_DATA_EXTRACTION_PROMPT
 
 
 def render_table(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -23,15 +24,11 @@ def render_table(state: Dict[str, Any]) -> Dict[str, Any]:
     if v_result and not v_result.get("is_valid"):
         feedback_text = f"\n[이전 시도 피드백]: {v_result.get('suggestion')}\n위 피드백을 반영하여 다시 작성해줘."
 
-    prompt = f"""
-    다음 텍스트를 기반으로 '{d.table_type.value}' 스타일의 Markdown Table을 작성해줘.{feedback_text}
-    
-    규칙:
-    - 표만 출력해. 제목(#, ##, ### 등)이나 설명 텍스트 없이 오직 표만.
-    - 표는 완전하고 읽기 쉽게 작성해.
-    
-    내용: {text}
-    """
+    prompt = TABLE_RENDER_PROMPT.format(
+        table_type=d.table_type.value,
+        feedback_text=feedback_text,
+        text=text
+    )
     chat = get_llm(max_tokens=8192, reasoning_effort="low")
     response = chat.invoke(prompt)
     
@@ -61,17 +58,11 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
     if v_result and not v_result.get("is_valid"):
         feedback_text = f"\n[이전 시도 피드백]: {v_result.get('suggestion')}\n위 피드백을 반영하여 오류를 수정해서 다시 작성해줘."
 
-    prompt = f"""
-    다음 텍스트를 기반으로 '{d.diagram_type.value}' 스타일의 Mermaid 다이어그램 코드를 작성해줘.{feedback_text}
-    
-    규칙:
-    1. 오직 Mermaid 코드 블록만 출력해. 제목이나 설명 텍스트 없이.
-    2. 마크다운 코드 블록 안에 작성해.
-    3. **Syntax 중요**: 노드 라벨에 괄호()가 포함될 경우, 반드시 따옴표로 감싸거나(예: A["텍스트(괄호)"]) 괄호를 제거해. (Mermaid 구문 오류 방지)
-    4. 흐름이 논리적이고 명확해야 해.
-    
-    내용: {text}
-    """
+    prompt = DIAGRAM_RENDER_PROMPT.format(
+        diagram_type=d.diagram_type.value,
+        feedback_text=feedback_text,
+        text=text
+    )
     chat = get_llm(max_tokens=8192, reasoning_effort="low")
     response = chat.invoke(prompt)
     
@@ -110,12 +101,10 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
     chat = get_llm(max_tokens=8192, reasoning_effort="low")
     structured_llm = chat.with_structured_output(ChartData)
 
-    prompt = f"""
-    다음 텍스트에서 '{d.chart_type.value}' 차트를 그리기 위한 수치 데이터를 추출해줘.
-    내용에 수치가 직접적으로 없더라도, 문맥상 적절한 추정치를 사용해서 차트 데이터를 만들어줘.
-    
-    내용: {text[:1000]}
-    """
+    prompt = CHART_DATA_EXTRACTION_PROMPT.format(
+        chart_type=d.chart_type.value,
+        text_snippet=text[:1000]
+    )
     
     try:
         data = structured_llm.invoke(prompt)
