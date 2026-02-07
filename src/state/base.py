@@ -27,6 +27,7 @@ class SupervisionState(TypedDict):
     last_decision: Annotated[str, '마지막 결정']
     current_task: Annotated[str | None, '현재 작업']
     reason: Annotated[str, '결정 이유']
+    summary: Annotated[str, '현재 상태 요약']
     pending_request: Annotated[str | None, '에이전트의 사용자 입력 요청']
     request_type: Annotated[str | None, '요청 타입']
 

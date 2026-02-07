@@ -91,6 +91,12 @@ def init_page():
             padding: 2px !important;              /* 내부 미세 여백 */
             box-shadow: 0 -2px 10px rgba(0,0,0,0.03); /* 상단으로 살짝 퍼지는 그림자 */
         }
+        /* 채팅 메시지 버블 스타일 */
+        [data-testid="stChatMessage"] {
+            border-radius: 12px !important;       /* 모서리 곡률 통일 */
+            padding: 10px 14px !important;        /* 내부 여백 */
+            background-color: white !important; /* 흰색 배경 */
+        }
         </style>
     """, unsafe_allow_html=True)
 

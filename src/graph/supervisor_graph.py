@@ -3,13 +3,14 @@ from state.base import GlobalState
 from graph.idea_graph import idea_subgraph
 from graph.plan_graph import plan_subgraph
 from graph.research_graph import research_subgraph
-from agents.supervisor import supervisor_node, ask_user, supervisor_router
+from agents.supervisor import supervisor_node, ask_user, supervisor_router, prepare_idea_structuring
 
 
 # 노드 설정
 supervisor_graph = StateGraph(GlobalState)
 supervisor_graph.add_node("supervisor", supervisor_node)
 supervisor_graph.add_node("ask_user", ask_user)
+supervisor_graph.add_node("prepare_idea_structuring", prepare_idea_structuring)
 supervisor_graph.add_node("idea_phase", idea_subgraph)
 supervisor_graph.add_node("plan_phase", plan_subgraph)
 supervisor_graph.add_node("research_phase", research_subgraph)
@@ -21,13 +22,14 @@ supervisor_graph.add_conditional_edges(
     supervisor_router,
     {
         "ASK_USER": "ask_user",
-        "RUN_IDEA_STRUCTURING": "idea_phase",
+        "RUN_IDEA_STRUCTURING": "prepare_idea_structuring",
         "RUN_PLANNING": "plan_phase",
         "RUN_RESEARCH": "research_phase",
         "supervisor_node": "supervisor"
     }
 )
 supervisor_graph.add_edge("ask_user", END)
+supervisor_graph.add_edge("prepare_idea_structuring", "idea_phase")
 supervisor_graph.add_edge("idea_phase", "supervisor")
 supervisor_graph.add_edge("plan_phase", "supervisor")
 supervisor_graph.add_edge("research_phase", "supervisor")
