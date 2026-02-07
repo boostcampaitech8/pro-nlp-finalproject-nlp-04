@@ -5,9 +5,8 @@ from __future__ import annotations
 from typing import Dict, Any, List
 from datetime import datetime
 from pathlib import Path
-from tqdm import tqdm
 
-_pbar = None
+
 
 from agents.plan_core.schemas import (
     StructuredIdea, TableOfContents, TableOfContentsItem, 
@@ -20,6 +19,7 @@ from agents.plan_core.generator import (
 
 from state.plan import PlanInternalState
 from agents.plan_core.logger import get_logger, LogLevel
+from agents.plan_core.evaluator import evaluate_research_need
 
 
 # ===========================
@@ -34,11 +34,9 @@ def parse_input_node(state: PlanInternalState) -> PlanInternalState:
     idea = state.get("idea", {})
     blueprint = idea.get("blueprint", [])
     
-    # tqdm 초기화
-    global _pbar
+    # tqdm 제거
     total_sections = len(blueprint)
-    if total_sections > 0:
-        _pbar = tqdm(total=total_sections, desc="기획서 생성 진행율", unit="section")
+
     
     # toc 변환 (문자열 목록 -> TableOfContents)
     toc_items = []
@@ -54,9 +52,18 @@ def parse_input_node(state: PlanInternalState) -> PlanInternalState:
     
     # PlanInternalState 필드 업데이트
     # (GlobalState를 상속받으므로 직접 할당)
-    state["current_section_index"] = 0
-    state["sections"] = []
-    state["visual_artifacts"] = []
+    # [Fix] 기존 상태가 있으면 초기화하지 않음 (Resume 지원)
+    if "current_section_index" not in state:
+        state["current_section_index"] = 0
+    if "sections" not in state:
+        state["sections"] = []
+    if "visual_artifacts" not in state:
+        state["visual_artifacts"] = []
+    
+    # plan_status 초기화 (없으면 기본값)
+    if "plan_status" not in state:
+        state["plan_status"] = "IN_PROGRESS"
+    
     state["temp_visual_state"] = {}
     state["final_markdown"] = ""
     state["output_path"] = ""
@@ -65,7 +72,7 @@ def parse_input_node(state: PlanInternalState) -> PlanInternalState:
 
 
 def generate_section_node(state: PlanInternalState) -> PlanInternalState:
-    """전역 상태를 직접 참조하여 섹션 생성"""
+    """전역 상태를 직접 참조하여 섹션 생성 (Research 평가 포함)"""
     logger = get_logger()
     
     # 전역 컨텍스트 바로 읽기
@@ -76,12 +83,49 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     blueprint_item_dict = blueprint[current_index]
     blueprint_item = BlueprintItem(**blueprint_item_dict)
     
-    # tqdm 업데이트
-    global _pbar
-    if _pbar:
-        _pbar.set_description(f"작성 중: {blueprint_item.title}")
-        guideline_text = (blueprint_item.guideline[:100] + "...") if blueprint_item.guideline and len(blueprint_item.guideline) > 100 else (blueprint_item.guideline or "없음")
-        tqdm.write(f"\n[입력] 섹션 {current_index+1}: {blueprint_item.title} (가이드라인: {guideline_text})")
+    # =========================================
+    # Pre-write: ResearchNeedScore 평가
+    # =========================================
+    
+    # 이미 리서치가 완료된 상태인지 확인 (research.needs_research == False)
+    research_state = state.get("research", {})
+    research_completed = research_state.get("section_context") == blueprint_item.title and not research_state.get("needs_research", True)
+    
+    if not research_completed:
+        score_result = evaluate_research_need(blueprint_item)
+        
+        logger.log(LogLevel.INFO, "research_evaluator", 
+            f"ResearchNeedScore: {score_result.score:.2f} (needs={score_result.needs_research})", {
+                "section": blueprint_item.title,
+                "score": score_result.score,
+                "needs_research": score_result.needs_research,
+                "suggested_queries": score_result.suggested_queries
+            })
+        
+        # 리서치가 필요하면 Supervisor에게 알림 (상태만 반환하고 종료)
+        if score_result.needs_research:
+            logger.log(LogLevel.INFO, "research_evaluator", 
+                f"Research 요청: {blueprint_item.title}", {
+                    "queries": score_result.suggested_queries
+                })
+            state["research"] = {
+                "needs_research": True,
+                "queries": score_result.suggested_queries,
+                "section_context": blueprint_item.title,
+                "evidence_store": research_state.get("evidence_store", [])
+            }
+            # [Explicit State] 상태 변경 -> Supervisor가 감지
+            state["plan_status"] = "WAITING_FOR_RESEARCH"
+            return state  # Supervisor가 RUN_RESEARCH로 라우팅
+    
+    # =========================================
+    # 섹션 생성 (Research 완료 또는 불필요 시)
+    # =========================================
+    
+    # [Log] 섹션 진행 상황 출력
+    print(f"\n[입력] 섹션 {current_index+1}: {blueprint_item.title}")
+    # 가이드라인은 필요 시 로깅 또는 디버그 출력
+
     
     logger.log_section_generation(str(current_index + 1), blueprint_item.title, "blueprint")
     
@@ -95,17 +139,48 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     
     previous_sections = [PlanSection(**s) for s in state["sections"]]
     
+    # =====================================================
+    # [Research 연동] 리서치 결과를 섹션 생성에 활용
+    # 
+    # Research Agent 실행 후 state['research']에 저장된 데이터:
+    #   - evidence_store (List[str]): Tavily 검색 결과 내용들
+    #   - analysis_result (str): 검색 결과 분석 텍스트
+    # 
+    # generator.generate_section_from_blueprint()의 evidence 파라미터로 전달하면
+    # 프롬프트에 "[참고용 리서치 자료]"로 포함되어 팩트 기반 작성 유도
+    # =====================================================
+    analysis_result = research_state.get("analysis_result", "")
+    evidence_store = research_state.get("evidence_store", [])
+    
+    # [Log] 리서치 결과 로깅 (섹션 생성 시작 전)
+    if evidence_store:
+        logger.log(LogLevel.INFO, "plan_generator", 
+            f"리서치 결과 수신: {len(evidence_store)}건", {
+                "section": blueprint_item.title,
+                "analysis_preview": (analysis_result[:100] + "...") if analysis_result else "없음",
+                "evidence_count": len(evidence_store)
+            })
+
+    # [Log] 섹션 생성 시작 로깅
+    logger.log_section_generation(str(current_index + 1), blueprint_item.title, "blueprint")
+    
+    # evidence 리스트 구성: 분석 결과 + 개별 검색 결과
+    evidence_for_section = []
+    if analysis_result:
+        evidence_for_section.append(f"[분석 요약]\n{analysis_result}")
+    if evidence_store:
+        evidence_for_section.extend(evidence_store)
+    
     section = generate_section_from_blueprint(
         structured_input=structured_input,
         blueprint_item=blueprint_item,
         section_index=current_index,
-        previous_sections=previous_sections
+        previous_sections=previous_sections,
+        evidence=evidence_for_section  # Research 결과 전달
     )
     
-    if _pbar:
-        content_snippet = section.content[:50].replace("\n", " ") + "..."
-        tqdm.write(f"[출력] {content_snippet}")
-        _pbar.set_postfix(last_output=section.title)
+    print(f"[출력] {section.content[:50].replace('\\n', ' ')}...")
+
     
     state["sections"].append(section.model_dump())
     
@@ -129,9 +204,16 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
 
 def increment_section_index_node(state: PlanInternalState) -> PlanInternalState:
     state["current_section_index"] += 1
-    global _pbar
-    if _pbar:
-        _pbar.update(1)
+
+        
+    # [Refactor] 종료 조건 판단 (Incremental)
+    # 다음 섹션이 없으면 COMPLETED, 있으면 IN_PROGRESS
+    blueprint = state["idea"].get("blueprint", [])
+    if state["current_section_index"] >= len(blueprint):
+        state["plan_status"] = "COMPLETED"
+    else:
+        state["plan_status"] = "IN_PROGRESS"
+        
     return state
 
 
@@ -149,10 +231,7 @@ def route_next_section(state: PlanInternalState) -> str:
 
 def compose_output_node(state: PlanInternalState) -> PlanInternalState:
     print("[Pipeline] 최종 마크다운 조합 중...")
-    global _pbar
-    if _pbar:
-        _pbar.close()
-        _pbar = None
+
     
     idea_data = state["idea"]
     
@@ -197,4 +276,8 @@ def save_output_node(state: PlanInternalState) -> PlanInternalState:
     
     state["output_path"] = str(output_path)
     print(f"[Pipeline] 저장 완료: {output_path}")
+    
+    # [Refactor] plan_status는 increment_section_index_node에서 결정됨
+    # 여기서는 덮어쓰지 않음
+    
     return state
