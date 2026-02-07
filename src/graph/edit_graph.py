@@ -39,6 +39,9 @@ def build_edit_pipeline():
 # Singleton Instance
 edit_subgraph = build_edit_pipeline()
 
+# Alias for consistency with other graphs
+create_edit_graph = build_edit_pipeline
+
 if __name__ == "__main__":
     # Full test script: exp/test_edit_graph.py
     print(">>> Edit Graph loaded successfully.")

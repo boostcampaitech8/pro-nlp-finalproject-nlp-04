@@ -51,6 +51,9 @@ def build_visual_pipeline():
 
 visual_subgraph = build_visual_pipeline()
 
+# Alias for consistency with other graphs
+create_visual_graph = build_visual_pipeline
+
 if __name__ == "__main__":
     # Test Block
     print(">>> Testing Visual Graph...")
