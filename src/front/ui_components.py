@@ -1,5 +1,6 @@
 import streamlit as st
 from graph.supervisor_graph import supervisor_app
+from pathlib import Path
 
 def render_question_view(questions):
     st.markdown('<p style="font-size: 1.2rem; font-weight: 700; color: #666;">Question</p>', unsafe_allow_html=True)
@@ -53,10 +54,10 @@ def render_question_view(questions):
 def render_plan_view():
     st.markdown('<p style="font-size: 1.2rem; font-weight: 700; color: #666;">Drafting Canvas</p>', unsafe_allow_html=True)
 
-    # 텍스트 영역 배치
-    edited_text = st.text_area(
-        "Project Title",
-        placeholder="작성중인 기획서가 표시될 공간...",
-        height=700,
-        label_visibility="collapsed"
-    )
+    if st.session_state.state['plan']['output_path']:
+        md_path = Path(st.session_state.state['plan']['output_path'])
+        if md_path.exists():
+            content = md_path.read_text(encoding="utf-8")
+            st.markdown(content)
+    else:
+        st.info("기획서가 아직 생성되지 않았습니다.")

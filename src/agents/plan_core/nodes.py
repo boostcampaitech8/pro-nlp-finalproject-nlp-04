@@ -35,8 +35,7 @@ def parse_input_node(state: PlanInternalState) -> PlanInternalState:
     
     # IdeaState 및 PlanState(Public) 참조
     idea = state.get("idea", {})
-    plan_public = state.get("plan", {})
-    blueprint = plan_public.get("blueprint", [])
+    blueprint = idea.get("blueprint", [])
     
     # tqdm 초기화
     global _pbar
@@ -74,8 +73,7 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     
     # 전역 컨텍스트 바로 읽기
     idea = state["idea"]
-    plan_public = state["plan"]
-    blueprint = plan_public["blueprint"]
+    blueprint = idea["blueprint"]
     current_index = state["current_section_index"]
     
     blueprint_item_dict = blueprint[current_index]
@@ -233,7 +231,7 @@ def check_needs_visual(state: PlanInternalState) -> str:
 
 
 def route_next_section(state: PlanInternalState) -> str:
-    blueprint = state["plan"]["blueprint"]
+    blueprint = state["idea"]["blueprint"]
     current_index = state["current_section_index"]
     if current_index < len(blueprint):
         return "generate_section"
@@ -252,7 +250,6 @@ def compose_output_node(state: PlanInternalState) -> PlanInternalState:
         _pbar = None
     
     idea_data = state["idea"]
-    plan_public = state["plan"]
     
     # TableOfContents 생성 (문자열 리스트 기반)
     toc_items = []
