@@ -8,7 +8,6 @@ class IdeaState(TypedDict):
     blueprint: Annotated[List[Dict[str, Any]], '기획 청사진']
     last_decision: Annotated[str, 'Evaluator의 결정']
     messages: Annotated[str, 'AI가 생성한 메시지']
-    form: Annotated[List[Dict[str, Any]], 'AI가 생성한 질문']
     
 
 class PlanState(TypedDict):
@@ -39,7 +38,7 @@ class VisualState(TypedDict):
 class GlobalState(TypedDict):
     messages: Annotated[list, add_messages]
     awaiting_input: Annotated[bool, '입력 대기 여부']
-    input_request: Annotated[str | None, '사용자 입력 요청 내용']
+    input_request: Annotated[str | None, '입력 요청']
     user_response: Annotated[str | None, '사용자 응답']
     completed_steps: Annotated[str, '완료된 단계']
     idea: IdeaState

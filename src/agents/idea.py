@@ -9,6 +9,7 @@ from state.idea import InternalState
 from models.llm import get_mini_llm, get_llm
 from prompts.idea_prompts import CREATOR_PROMPT, UPDATER_PROMPT, QUESTIONER_PROMPT
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from agents.plan_core.logger import get_logger, LogLevel
 
 def idea_router(state: InternalState) -> str:
     # analyzer에서 정한 intent를 가져옴
@@ -25,6 +26,7 @@ def idea_router(state: InternalState) -> str:
     return "questioner"
 
 def analyzer_node(state: InternalState):
+    logger = get_logger()
     user_input = state.get('user_response')
     blueprint = state.get('blueprint') or state.get('idea', {}).get('blueprint')
     
@@ -38,14 +40,15 @@ def analyzer_node(state: InternalState):
             "internal_user_intent": "RESTRUCTURE", 
             "target_sections": None,
         }
-    # else: #혹시 모를 예외 케이스: blueprint는 있는데 자연어가 들어온 경우
-    #     return {
-    #         "internal_user_intent": "RESTRUCTURE", 
-    #         "target_sections": None,
-    #     }
+    else: #혹시 모를 예외 케이스: blueprint는 있는데 자연어가 들어온 경우
+        return {
+            "internal_user_intent": "RESTRUCTURE", 
+            "target_sections": None,
+        }
 
 
 def creator_node(state: InternalState):
+    logger = get_logger()
     system_msg = SystemMessage(content=CREATOR_PROMPT)
     user_input = state['user_response']
     llm = get_llm(temperature=0.3, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
@@ -62,6 +65,14 @@ def creator_node(state: InternalState):
 
     result = json.loads(response.content)
     
+    # 블루프린트 생성 결과 로깅
+    logger.log(LogLevel.INFO, "idea_creator", f"Creator 노드 완료 (style: {result['planning_style']})", {
+        "planning_style": result['planning_style'],
+        "rationale": result['rationale'][:200] if result.get('rationale') else None,
+        "blueprint_count": len(result.get('blueprint', [])),
+        "blueprint_titles": [b.get('title') for b in result.get('blueprint', [])]
+    })
+    
     return {
         "idea":
             {   
@@ -74,6 +85,7 @@ def creator_node(state: InternalState):
     }
     
 def updater_node(state: InternalState):
+    logger = get_logger()
     system_msg = SystemMessage(content=UPDATER_PROMPT)
     user_input = state['user_response']
     llm = get_llm(temperature=0.5, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
@@ -91,6 +103,13 @@ def updater_node(state: InternalState):
     ])
 
     result = json.loads(response.content)
+    
+    # 블루프린트 업데이트 결과 로깅
+    logger.log(LogLevel.INFO, "idea_updater", "Updater 노드 완료", {
+        "target_sections": state.get('target_sections'),
+        "blueprint_count": len(result.get('blueprint', [])),
+        "blueprint_titles": [b.get('title') for b in result.get('blueprint', [])]
+    })
     
     return {
         "idea":{
@@ -152,11 +171,13 @@ def questioner_node(state: InternalState):
     }
 
 def evaluator_node(state: InternalState):
+    logger = get_logger()
     # 검수 로직  
     blueprint = state['idea'].get('blueprint', [])
     is_valid = True # 검증 로직 결과
     
     if not is_valid:
+        logger.log(LogLevel.WARNING, "idea_evaluator", "Evaluator 노드: 검증 실패 (REJECTED)", {})
         return {
             "idea": {
                 **state['idea'],
@@ -174,6 +195,19 @@ def evaluator_node(state: InternalState):
     else:
         # 유저의 추가 입력이 필요함
         decision = "WAIT_FOR_USER"
+    
+    # 최종 결과 로깅 (COMPLETE인 경우 블루프린트 전체 내용 로깅)
+    log_data = {
+        "decision": decision,
+        "remaining_sections_count": len(remaining_sections),
+        "total_sections": len(blueprint)
+    }
+    if decision == "COMPLETE":
+        log_data["final_blueprint"] = blueprint
+        log_data["toc"] = [section.get('title') for section in blueprint]
+    
+    logger.log(LogLevel.INFO, "idea_evaluator", f"Evaluator 노드 완료 (decision: {decision})", log_data)
+    
     return {
         "idea":{
             **state['idea'],

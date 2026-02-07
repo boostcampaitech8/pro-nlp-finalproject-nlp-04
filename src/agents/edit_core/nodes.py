@@ -4,6 +4,7 @@ Edit Pipeline Nodes
 from agents.plan_core.generator import generate_section_from_blueprint, generate_partial_edit
 from agents.plan_core.schemas import StructuredInput, BlueprintItem
 from state.edit import EditInternalState
+from prompts.edit_prompts import SECTION_REGENERATION_GUIDELINE_TEMPLATE
 
 def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     """
@@ -32,15 +33,23 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     
     # content가 존재하고, 범위가 명시된 경우 부분 수정 진행
     if granularity in ["paragraph", "sentence", "block", "subtree"] and range_start is not None:
-        print(f"[Edit] 부분 수정 모드: {granularity} (Lines: {range_start}~{range_end})")
+
         
         # 현재 컨텐츠 분리 (줄바꿈 기준)
         current_content = target_item.content or ""
         lines = current_content.split('\n')
         
+        # range_end 자동 계산 (제공되지 않은 경우)
+        if range_end is None:
+            # 기본값: range_start와 동일 (한 줄 수정)
+            range_end = range_start
+            print(f"[Edit] range_end 미지정 -> {range_end}로 자동 설정")
+            
+        print(f"[Edit] 부분 수정 모드: {granularity} (Lines: {range_start}~{range_end})")
+        
         # 범위 보정 (Index Out of Bounds 방지)
         safe_start = max(0, min(range_start, len(lines) - 1))
-        safe_end = max(safe_start, min(range_end if range_end is not None else safe_start, len(lines) - 1))
+        safe_end = max(safe_start, min(range_end, len(lines) - 1))
         
         # Context 추출
         prefix_lines = lines[:safe_start]
@@ -66,7 +75,12 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
         state["used_guideline"] = f"Partial Edit ({granularity}): {state['instruction']}"
         print(f"[Edit] 부분 수정 완료.")
         
-        return state
+        return {
+            **state,
+            "regenerated_content": "\n".join(reassembled_lines),
+            "used_guideline": f"Partial Edit ({granularity}): {state['instruction']}",
+            "edit_range_end": safe_end
+        }
 
     # -------------------------------------------------------
     # B. Section Edit (Legacy) - Whole Section Regeneration
@@ -75,14 +89,18 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     # 2. Instruction Injection
     # 기존 가이드라인 뒤에 유저 요청을 강력하게 붙입니다.
     original_guideline = target_item.guideline or ""
-    injected_guideline = f"{original_guideline}\n\n[USER REVISION REQEUST]: {state['instruction']}"
     
     # Feedback Injection (If Retry)
+    feedback_section = ""
     if state.get("feedback"):
-        injected_guideline += f"\n\n[PREVIOUS FEEDBACK (Must Fix)]: {state['feedback']}"
+        feedback_section = f"\n\n[PREVIOUS FEEDBACK (Must Fix)]: {state['feedback']}"
         print(f"[Edit] 피드백 반영하여 재생성: {state['feedback']}")
-    
-    injected_guideline += "\n(기존 기획의 톤앤매너와 양식을 유지하면서, 위 요청 사항을 자연스럽게 반영하여 섹션을 업데이트하세요.)"
+        
+    injected_guideline = SECTION_REGENERATION_GUIDELINE_TEMPLATE.format(
+        original_guideline=original_guideline,
+        instruction=state['instruction'],
+        feedback_section=feedback_section
+    )
     
     # 수정된 아이템 생성 (Generator에 전달용)
     modified_item = BlueprintItem(
