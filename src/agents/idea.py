@@ -31,13 +31,14 @@ def idea_router(state: InternalState) -> str:
     return "questioner"
 
 def analyzer_node(state: InternalState):
-    current_question = state.get("required_data_points")
-    if current_question:
-        # 질문이 있을 때는 실제 내용을 넣음
-        q_context = f"현재 진행 중인 질문: {current_question}"
-    else:
-        # 질문이 없을 때는 AI가 헷갈리지 않게 명시
-        q_context = "현재 진행 중인 질문 없음 (사용자의 일반적인 요청으로 처리할 것)"
+    user_input = state.get('user_response')
+    
+    if isinstance(user_input, dict) and any(key in user_input for key in ["selected_option", "value"]):
+        return {
+            "intent": "FILL_CONTENT",
+            "target_sections": list(user_input.keys()),
+            "reason": "Structured JSON response detected. Bypassing LLM inference."
+        }
 
     blueprint = state.get('blueprint')
     if not blueprint:
@@ -50,7 +51,6 @@ def analyzer_node(state: InternalState):
     formatted_prompt = ANALYZER_PROMPT.format(
         user_input=state['user_response'],
         blueprint=[item['title'] for item in blueprint],
-        required_data_points=q_context
     )
 
     response = analyzer_llm.invoke(formatted_prompt)
