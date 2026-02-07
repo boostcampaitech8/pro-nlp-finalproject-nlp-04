@@ -25,6 +25,10 @@ class EditState(TypedDict):
 class SupervisionState(TypedDict):
     last_decision: Annotated[str, '마지막 결정']
 
+class VisualState(TypedDict):
+    last_generated_code: Annotated[str, "마지막 생성 코드"]
+    artifacts: Annotated[Dict[str, Any], "생성된 시각화 결과물 (ID 매핑)"]
+
 class GlobalState(TypedDict):
     messages: Annotated[list, add_messages]
     awaiting_input: Annotated[bool, '입력 대기 여부']
@@ -34,4 +38,5 @@ class GlobalState(TypedDict):
     idea: IdeaState
     plan: PlanState
     edit: EditState
+    visual: VisualState
     supervision: SupervisionState

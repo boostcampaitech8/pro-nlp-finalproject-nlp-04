@@ -6,7 +6,7 @@ from typing import Dict, Any
 from pydantic import BaseModel, Field
 
 from models.llm import get_llm
-from agents.plan_core.visual.schemas import VisualMeta
+from agents.visual_core.schemas import VisualMeta
 
 
 class ValidationResult(BaseModel):
@@ -46,7 +46,7 @@ def validate_visual(
         )
     
     # 표/다이어그램/차트의 경우 LLM으로 검증.
-    chat = get_llm(reasoning_effort="low")
+    chat = get_llm(max_tokens=8192, reasoning_effort="low")
     structured_llm = chat.with_structured_output(ValidationResult)
     
     prompt = f"""

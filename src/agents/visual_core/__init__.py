@@ -2,7 +2,7 @@
 시각화 에이전트 패키지
 """
 
-from agents.plan_core.visual.schemas import (
+from agents.visual_core.schemas import (
     Decision,
     VisualMeta,
     VisualArtifact,
@@ -10,21 +10,22 @@ from agents.plan_core.visual.schemas import (
     DiagramType,
 )
 
-from agents.plan_core.visual.router import (
+from agents.visual_core.router import (
     decide_node,
     generate_visual_meta,
     route_next,
 )
 
-from agents.plan_core.visual.generator import (
+from agents.visual_core.generator import (
     render_table,
     render_diagram,
+    render_chart,
     image_search,
     image_gen,
     create_visual_artifact,
 )
 
-from agents.plan_core.visual.validator import (
+from agents.visual_core.validator import (
     validate_visual,
     validate_and_decide_retry,
     ValidationResult,
@@ -44,6 +45,7 @@ __all__ = [
     # 생성기
     "render_table",
     "render_diagram",
+    "render_chart",
     "image_search",
     "image_gen",
     "create_visual_artifact",

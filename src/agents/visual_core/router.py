@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, TypedDict
 
 from models.llm import get_llm
-from agents.plan_core.visual.schemas import Decision, VisualMeta
+from agents.visual_core.schemas import Decision, VisualMeta
 from agents.plan_core.logger import get_logger, LogLevel
 
 
@@ -72,7 +72,7 @@ def generate_visual_meta(state: RouterState) -> RouterState:
     text = state.get("section_text", "")
     title = state.get("section_title", "")
     
-    if not any([decision.needs_table, decision.needs_diagram, 
+    if not any([decision.needs_table, decision.needs_diagram, decision.needs_chart,
                 decision.needs_image_search, decision.needs_image_gen]):
         state["visual_meta"] = None
         return state
