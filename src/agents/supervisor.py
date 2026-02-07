@@ -57,8 +57,8 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                         'request_type': 'idea_form',
                     }
             }
-            # 아이디어 에이전트 COMPLETE
-            elif state['idea']['last_decision'] == 'COMPLETE':
+            # 아이디어 에이전트 컨펌 or 완료
+            elif state['idea']['last_decision'] in ['CONFIRM', 'COMPLETE']:
                 return {
                     'supervision': {
                         **state['supervision'],
@@ -67,12 +67,13 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     }
                 }
         elif last_decision == 'RUN_PLANNING':
-            # TODO
             return {
                 'supervision': {
                     **state['supervision'],
                     'last_decision': 'ASK_USER',
                     'current_task': 'planning',
+                    'pending_request': '기획서 작성이 완료되었습니다. 추가 수정이 필요하신가요?',
+                    'request_type': 'text',
                 }
             }
         elif last_decision == 'RUN_RESEARCH':
