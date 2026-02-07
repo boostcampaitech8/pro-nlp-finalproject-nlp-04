@@ -48,7 +48,7 @@ def analyzer_node(state: InternalState):
 
     analyzer_llm = get_llm(temperature=0.1, max_tokens=2048, reasoning_effort='high').bind(response_format={"type": "json_object"})
     formatted_prompt = ANALYZER_PROMPT.format(
-        user_input=state['messages'][-1].content,
+        user_input=state['user_response'],
         blueprint=[item['title'] for item in blueprint],
         required_data_points=q_context
     )
@@ -63,7 +63,7 @@ def analyzer_node(state: InternalState):
 
 def creator_node(state: InternalState):
     system_msg = SystemMessage(content=CREATOR_PROMPT)
-    user_input = state['messages'][-1].content
+    user_input = state['user_response']
     llm = get_llm(temperature=0.3, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
@@ -91,7 +91,7 @@ def creator_node(state: InternalState):
     
 def updater_node(state: InternalState):
     system_msg = SystemMessage(content=UPDATER_PROMPT)
-    user_input = state['messages'][-1].content
+    user_input = state['user_response']
     llm = get_llm(temperature=0.5, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
@@ -119,7 +119,7 @@ def updater_node(state: InternalState):
 
 def questioner_node(state: InternalState):
     system_msg = SystemMessage(content=QUESTIONER_PROMPT)
-    llm = get_mini_llm(temperature=0.3, max_tokens=1000)
+    llm = get_mini_llm(temperature=0.5, max_tokens=4000).bind(response_format={"type": "json_object"})
 
     intent = state.get("internal_user_intent")
     # 의도가 불분명한 경우 (AMBIGUOUS)
@@ -130,7 +130,7 @@ def questioner_node(state: InternalState):
             "idea": {
                 **state["idea"], 
                 "last_decision": "WAIT_FOR_USER", 
-                "messages": [response]
+                "messages": response.content
             }
         }
     
@@ -143,7 +143,7 @@ def questioner_node(state: InternalState):
         return {
             "idea": {
                 **state["idea"],
-                "messages": [AIMessage(content="모든 기획 섹션이 완료되었습니다! 최종 검토를 시작합니다.")],
+                "messages": "모든 기획 섹션이 완료되었습니다! 최종 검토를 시작합니다.",
             },
             "internal_user_intent": "CONFIRM"
         }
@@ -151,21 +151,20 @@ def questioner_node(state: InternalState):
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
     context_info = f"""
     blueprint: {blueprint}
-    current_status: {not_completed_count}
     """
 
     response = llm.invoke([
         system_msg,
         HumanMessage(content=f"{context_info}")
     ])
-    question_content = response.content
+    result = json.loads(response.content)
     
     return {
         "idea":{
             **state['idea'],
-            "messages": [response],
+            "form": result.get("forms", [])
         },
-        "required_data_points": question_content
+        "required_data_points": result.get("forms", [])
     }
 
 def evaluator_node(state: InternalState):
@@ -182,9 +181,9 @@ def evaluator_node(state: InternalState):
         }
 
     # 검수 통과 시: 다음 단계 준비
-    remaining_questions = state.get('required_data_points', [])
+    remaining_sections = [s for s in blueprint if s.get('is_required_from_user') == True]
     
-    if not remaining_questions:
+    if not remaining_sections:
         # 모든 데이터가 수집됨
         decision = "COMPLETE"
         state["idea"]["toc"] = [section.get('title') for section in blueprint]
