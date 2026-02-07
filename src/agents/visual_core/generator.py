@@ -107,7 +107,7 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
             with open(file_path, "wb") as f:
                 f.write(img_response.content)
                 
-            relative_path = f"./artifacts/{filename}"
+            relative_path = f"output/artifacts/{filename}"
             
             if visual_meta:
                 visual_meta["content"] = f"![{d.diagram_type.value}]({relative_path})"
@@ -190,9 +190,9 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         fig.write_image(str(file_path))
 
         # [Fix] 파일 경로를 사용하여 마크다운에 삽입 (User Request)
-        # Markdown 파일이 output/에 있고, 이미지가 output/artifacts/에 있으므로
-        # 상대 경로는 ./artifacts/filename 형식이 됨
-        relative_path = f"./artifacts/{filename}"
+        # Streamlit은 실행 파일 경로 기준(Project Root)으로 정적 파일을 서빙 또는 참조해야 함
+        # Markdown 파일은 output/에 있지만, Streamlit 앱은 Root에서 이를 렌더링함
+        relative_path = f"output/artifacts/{filename}"
         
         # 4. 메타데이터 업데이트
         if visual_meta:
@@ -200,7 +200,7 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
             visual_meta["content"] = f"![{data.title}]({relative_path})"
             visual_meta["image_path"] = str(file_path)
             visual_meta["image_url"] = relative_path 
-
+            
         state.setdefault("artifacts", {})["chart"] = {
             "path": str(file_path),
             "type": d.chart_type.value,
