@@ -41,6 +41,7 @@ class GlobalState(TypedDict):
     awaiting_input: Annotated[bool, '입력 대기 여부']
     input_request: Annotated[str | None, '사용자 입력 요청 내용']
     user_response: Annotated[str | None, '사용자 응답']
+    completed_steps: Annotated[str, '완료된 단계']
     idea: IdeaState
     plan: PlanState
     edit: EditState

@@ -12,6 +12,7 @@ def create_initial_state():
         "awaiting_input": False,
         "input_request": None,
         "user_response": None,
+        "completed_steps": [],
         "idea": {
             "planning_style": "",
             "rationale": "",

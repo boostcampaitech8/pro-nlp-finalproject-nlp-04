@@ -19,8 +19,6 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                 }
             }
         elif state['supervision']['request_type'] == 'idea_form':
-            # state["user_response"] 처리 어떻게? (TODO)
-
             return {
                 'awaiting_input': False,
                 'supervision': {
@@ -40,7 +38,7 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                 'pending_request': '안녕하세요. 기획서 작성을 도와드릴까요?',
             }
         }
-    # 서브에이전트 호출 이후 (TODO)
+    # 서브에이전트 호출 이후
     elif state['supervision']['last_decision'] not in ['ASK_USER', 'supervisor_node']:
         last_decision = state['supervision']['last_decision']
 
@@ -60,6 +58,7 @@ def supervisor_node(state: GlobalState) -> GlobalState:
             # 아이디어 에이전트 컨펌 or 완료
             elif state['idea']['last_decision'] in ['CONFIRM', 'COMPLETE']:
                 return {
+                    'completed_steps': 'idea_structuring',
                     'supervision': {
                         **state['supervision'],
                         'last_decision': 'RUN_PLANNING',
@@ -68,11 +67,12 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                 }
         elif last_decision == 'RUN_PLANNING':
             return {
+                'completed_steps': 'planning',
                 'supervision': {
                     **state['supervision'],
                     'last_decision': 'ASK_USER',
                     'current_task': 'planning',
-                    'pending_request': '기획서 작성이 완료되었습니다. 추가 수정이 필요하신가요?',
+                    'pending_request': '기획서 작성이 완료되었습니다. 추가 수정이 필요하신 부분을 알려주세요.',
                     'request_type': 'text',
                 }
             }
@@ -84,7 +84,7 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     'last_decision': 'ASK_USER',
                 }
             }
-    # 사용자 응답과 현재 상태를 파악 후, 분기 (TODO)
+    # 사용자 응답과 현재 상태를 파악 후, 분기
     else:
         routing_context = summary_state(state)
         response = get_llm(max_tokens=10000).invoke([
@@ -150,7 +150,8 @@ def supervisor_router(state: GlobalState) -> str:
 # 6. last_user_input
 # 7. confidence_levels (if provided)
 def summary_state(state: GlobalState):
-    completed_steps = ...
+    # TODO
+    completed_steps = state['completed_steps']
 
     current_outputs = {}
     if "idea" in state:
@@ -169,6 +170,7 @@ def summary_state(state: GlobalState):
     
     return f'''
         Goal: {state['supervision']['goal']}
+        Completed steps: {completed_steps}
         Current task: {state['supervision']['current_task']}
         Current outputs: {current_outputs}
         Required information: {required_info}
@@ -177,6 +179,5 @@ def summary_state(state: GlobalState):
         Last user input: {state['user_response']}
         '''
 
-        # Completed steps: {completed_steps}
         # Known constraints: {known_constraints}
         # Confidence levels: {state['supervision']['confidence_levels']}
