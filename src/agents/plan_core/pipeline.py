@@ -7,6 +7,7 @@ from state.plan import PlanInternalState
 from agents.plan_core.nodes import (
     parse_input_node,
     generate_section_node,
+    process_visual_node,
     increment_section_index_node,
     route_next_section,
     compose_output_node,
@@ -23,6 +24,7 @@ def build_plan_pipeline():
     # 노드 추가
     g.add_node("parse_input", parse_input_node)
     g.add_node("generate_section", generate_section_node)
+    g.add_node("process_visual", process_visual_node)
     g.add_node("increment_index", increment_section_index_node)
     g.add_node("compose_output", compose_output_node)
     g.add_node("save_output", save_output_node)
@@ -33,29 +35,23 @@ def build_plan_pipeline():
     
     # =====================================================
     # [Research 연동] generate_section 이후 라우팅
-    # 
-    # needs_research=True인 경우:
-    #   - END로 종료하여 Supervisor에게 제어를 반환
-    #   - Supervisor가 RUN_RESEARCH → RUN_PLANNING으로 재호출
-    #   - current_section_index는 그대로 유지되어 동일 섹션 재처리
-    # 
-    # needs_research=False인 경우:
-    #   - increment_index로 이동하여 다음 섹션 처리
     # =====================================================
     def route_after_section(state: PlanInternalState) -> str:
-        # [Explicit State] plan_status 확인
         if state.get("plan_status") == "WAITING_FOR_RESEARCH":
             return "end_for_research"
-        return "increment_index"
+        return "process_visual"
     
     g.add_conditional_edges(
         "generate_section",
         route_after_section,
         {
             "end_for_research": END,
-            "increment_index": "increment_index"
+            "process_visual": "process_visual"
         }
     )
+    
+    # Visual 처리 후 다음 섹션으로
+    g.add_edge("process_visual", "increment_index")
     
     # Route Next Section
     # [Refactor] 내부 루프 제거 -> 섹션 단위 실행 (Incremental Execution)

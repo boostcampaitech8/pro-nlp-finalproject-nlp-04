@@ -60,6 +60,9 @@ def decide_node(state: RouterState) -> RouterState:
         print(f"LLM Error: {e}")
         decision = Decision(reason=f"Error: {str(e)}")
 
+    if decision is None:
+        decision = Decision(reason="LLM returned None")
+
     state["decision"] = decision.model_dump()
     return state
 

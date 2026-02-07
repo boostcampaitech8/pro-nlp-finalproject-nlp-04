@@ -20,6 +20,7 @@ from agents.plan_core.generator import (
 from state.plan import PlanInternalState
 from agents.plan_core.logger import get_logger, LogLevel
 from agents.plan_core.evaluator import evaluate_research_need
+from agents.visual_core import run_visual_for_section, VisualArtifact
 
 
 # ===========================
@@ -127,8 +128,6 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     # 가이드라인은 필요 시 로깅 또는 디버그 출력
 
     
-    logger.log_section_generation(str(current_index + 1), blueprint_item.title, "blueprint")
-    
     # StructuredInput 객체 생성 (기존 generator 함수와 호환 유지)
     structured_input = StructuredInput(
         planning_style=idea["planning_style"],
@@ -196,6 +195,51 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
 
 
 
+# ===========================
+# 시각화 처리 노드
+# ===========================
+
+def process_visual_node(state: PlanInternalState) -> PlanInternalState:
+    """
+    섹션 생성 후 시각화 처리 (visual_core 헬퍼 사용)
+    """
+    logger = get_logger()
+    
+    temp_state = state.get("temp_visual_state", {})
+    if not temp_state or not temp_state.get("section_text"):
+        logger.log(LogLevel.DEBUG, "visual_processor", "시각화 처리 스킵 (temp_visual_state 없음)", {})
+        return state
+    
+    section_title = temp_state.get("section_title", "")
+    logger.log(LogLevel.INFO, "visual_processor", f"시각화 처리 시작: {section_title}", {
+        "section_id": temp_state.get("section_id"),
+        "text_length": len(temp_state.get("section_text", ""))
+    })
+    
+    # 헬퍼 호출
+    artifact = run_visual_for_section(
+        section_id=str(temp_state.get("section_id", "")),
+        section_title=section_title,
+        section_text=temp_state.get("section_text", "")
+    )
+    
+    # 결과 저장
+    if artifact:
+        # [Safety] visual_artifacts 타입 보장
+        if not isinstance(state.get("visual_artifacts"), list):
+            state["visual_artifacts"] = []
+            
+        state["visual_artifacts"].append(artifact)
+        logger.log(LogLevel.INFO, "visual_processor", f"시각화 생성 완료: {artifact.get('visual_type')}", {
+            "section_title": section_title,
+            "visual_type": artifact.get("visual_type")
+        })
+    else:
+        logger.log(LogLevel.INFO, "visual_processor", "시각화 불필요 판정", {"section_title": section_title})
+    
+    # 클리어
+    state["temp_visual_state"] = {}
+    return state
 
 
 # ===========================
@@ -255,6 +299,8 @@ def compose_output_node(state: PlanInternalState) -> PlanInternalState:
         method="blueprint"
     )
     
+    # [Fix] Lazy Import to avoid NameError/Circular Import
+    from agents.visual_core.schemas import VisualArtifact
     visual_artifacts = [VisualArtifact(**v) for v in state["visual_artifacts"]]
     markdown = compose_plan_markdown(plan, visual_artifacts)
     state["final_markdown"] = markdown

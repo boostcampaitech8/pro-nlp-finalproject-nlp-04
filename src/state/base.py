@@ -14,7 +14,7 @@ class PlanState(TypedDict):
     sections: Annotated[List[str], '생성된 섹션 본문 리스트']
     final_markdown: Annotated[str, '합쳐진 전체 마크다운 문자열']
     output_path: Annotated[str, '저장된 파일 경로']
-    visual_artifacts: Annotated[Dict[str, Any], '시각화(표/차트) 메타데이터 리스트']
+    visual_artifacts: Annotated[List[Dict[str, Any]], '시각화(표/차트) 메타데이터 리스트']
 
 
 class EditState(TypedDict):

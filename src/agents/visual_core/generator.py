@@ -139,9 +139,17 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         # kaleido가 설치되어 있어야 함
         fig.write_image(str(file_path))
 
+        # [Fix] Base64 인코딩하여 마크다운에 직접 삽입 (Streamlit 호환성)
+        import base64
+        with open(file_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+        
+        base64_src = f"data:image/png;base64,{encoded_string}"
+
         # 4. 메타데이터 업데이트
         if visual_meta:
-            visual_meta["content"] = f"![{data.title}](artifacts/{filename})"
+            # Base64 이미지 사용
+            visual_meta["content"] = f"![{data.title}]({base64_src})"
             visual_meta["image_path"] = str(file_path)
             visual_meta["image_url"] = None 
 
