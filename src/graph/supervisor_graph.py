@@ -2,7 +2,14 @@ from langgraph.graph import StateGraph, END
 from state.base import GlobalState
 from graph.idea_graph import idea_subgraph
 from graph.plan_graph import plan_subgraph
-from graph.research_graph import research_subgraph
+# =====================================================
+# [Research 연동] run_research_for_plan 래퍼 함수 사용
+# 
+# research_subgraph는 ResearchState를 기대하지만,
+# run_research_for_plan은 GlobalState를 받아서 내부적으로 변환 후
+# research_subgraph를 호출하고 결과를 GlobalState.research에 저장
+# =====================================================
+from graph.research_graph import run_research_for_plan
 from agents.supervisor import supervisor_node, ask_user, supervisor_router, prepare_idea_structuring
 
 
@@ -13,7 +20,8 @@ supervisor_graph.add_node("ask_user", ask_user)
 supervisor_graph.add_node("prepare_idea_structuring", prepare_idea_structuring)
 supervisor_graph.add_node("idea_phase", idea_subgraph)
 supervisor_graph.add_node("plan_phase", plan_subgraph)
-supervisor_graph.add_node("research_phase", research_subgraph)
+# Research 노드: GlobalState <-> ResearchState 변환을 담당하는 래퍼 사용
+supervisor_graph.add_node("research_phase", run_research_for_plan)
 supervisor_graph.set_entry_point("supervisor")
 
 # 엣지 설정

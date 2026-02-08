@@ -6,7 +6,10 @@ from typing import Dict, Any
 from state.plan import PlanInternalState
 from agents.plan_core.nodes import (
     parse_input_node,
+    initialize_output_node,
     generate_section_node,
+    process_visual_node,
+    append_section_node,
     increment_section_index_node,
     route_next_section,
     compose_output_node,
@@ -22,28 +25,48 @@ def build_plan_pipeline():
     
     # 노드 추가
     g.add_node("parse_input", parse_input_node)
+    g.add_node("initialize_output", initialize_output_node)
     g.add_node("generate_section", generate_section_node)
+    g.add_node("process_visual", process_visual_node)
+    g.add_node("append_section", append_section_node)
     g.add_node("increment_index", increment_section_index_node)
     g.add_node("compose_output", compose_output_node)
     g.add_node("save_output", save_output_node)
     
     # Init
     g.set_entry_point("parse_input")
-    g.add_edge("parse_input", "generate_section")
+    g.add_edge("parse_input", "initialize_output")
+    g.add_edge("initialize_output", "generate_section")
     
-    # Edge: Generate Section -> Increment Index (No more visual loop)
-    g.add_edge("generate_section", "increment_index")
+    # =====================================================
+    # [Research 연동] generate_section 이후 라우팅
+    # =====================================================
+    def route_after_section(state: PlanInternalState) -> str:
+        if state.get("plan_status") == "WAITING_FOR_RESEARCH":
+            return "end_for_research"
+        return "process_visual"
     
-    # Route Next Section
     g.add_conditional_edges(
-        "increment_index",
-        route_next_section,
+        "generate_section",
+        route_after_section,
         {
-            "generate_section": "generate_section",
-            "compose_output": "compose_output"
+            "end_for_research": END,
+            "process_visual": "process_visual"
         }
     )
     
+    # Visual 처리 후 섹션 저장(Append) -> 다음 인덱스
+    g.add_edge("process_visual", "append_section")
+    g.add_edge("append_section", "increment_index")
+    
+    # Route Next Section
+    # [Refactor] 내부 루프 제거 -> 섹션 단위 실행 (Incremental Execution)
+    # generate_section -> ... -> increment_index -> compose_output -> save_output -> END
+    
+    # Route Next Section (Increment 후 종료)
+    # 다음 섹션이 있는지 여부는 nodes.py의 increment_index에서 
+    # GlobalState.plan_status를 통해 Supervisor에게 전달됨
+    g.add_edge("increment_index", "compose_output")
     g.add_edge("compose_output", "save_output")
     g.add_edge("save_output", END)
     

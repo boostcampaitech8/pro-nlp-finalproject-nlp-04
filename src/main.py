@@ -47,10 +47,22 @@ with st.sidebar:
     st.markdown("---")
 
     st.subheader("📁 Research Materials")
-    st.markdown("📄 Notion API Documentation")
-    st.markdown("📄 Tiptap Editor Guide")
-    st.markdown("📄 Vercel AI SDK")
-    st.markdown("📄 React Performance Optimization")
+    
+    # [Fix] 섹션별 리서치 자료 동적 표시
+    plan_data = st.session_state.state.get("plan", {})
+    sections = plan_data.get("sections", [])
+    
+    has_evidence = False
+    for sec in sections:
+        evidence = sec.get("evidence", [])
+        if evidence:
+            has_evidence = True
+            with st.expander(f"{sec.get('section_number', '')}. {sec.get('title', 'Untitled')}", expanded=False):
+                for item in evidence:
+                    st.markdown(f"- {item}", unsafe_allow_html=True)
+
+    if not has_evidence:
+        st.info("생성된 리서치 자료가 없습니다.")
 
 # 메인 3단 레이아웃
 center_col, right_col = st.columns([5.0, 2.8], gap="large")

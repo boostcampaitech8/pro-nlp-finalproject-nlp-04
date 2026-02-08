@@ -17,7 +17,6 @@ from agents.plan_core.schemas import (
 )
 from prompts.plan_prompts import SECTION_GENERATION_SYSTEM_PROMPT, SECTION_GENERATION_USER_PROMPT
 from prompts.edit_prompts import PARTIAL_EDIT_SYSTEM_PROMPT, PARTIAL_EDIT_USER_PROMPT
-# from agents.plan_core.visual.schemas import VisualMeta, VisualArtifact
 
 
 # ===========================
@@ -28,16 +27,20 @@ def generate_section_from_blueprint(
     structured_input: StructuredInput,
     blueprint_item: BlueprintItem,
     section_index: int,
-    previous_sections: List[PlanSection] = None
+    previous_sections: List[PlanSection] = None,
+    evidence: List[str] = None,
+    evidence_for_record: List[str] = None
 ) -> PlanSection:
     """
     Blueprint 항목을 기반으로 섹션을 생성합니다.
     - guideline + content(참고 컨텍스트) + 이전 섹션 컨텍스트로 LLM 생성
+    - evidence가 있으면 프롬프트에 포함하여 팩트 기반 작성 유도
     """
     section_number = str(section_index + 1)
     
     # content가 없으면 LLM으로 생성
     previous_sections = previous_sections or []
+    evidence = evidence or []
     
     # 전체 목차
     toc_text = "\n".join([f"{i+1}. {title}" for i, title in enumerate(structured_input.toc)])
@@ -54,11 +57,23 @@ def generate_section_from_blueprint(
 
     context_hint = blueprint_item.content or ""
     
-    # 유저 프롬프트 생성 (content 있으면 참고 컨텍스트로 추가)
+    # 유저 프롬프트 생성
     user_prompt = SECTION_GENERATION_USER_PROMPT.format(
         title=blueprint_item.title,
         user_content=context_hint
     )
+<<<<<<< HEAD
+=======
+    
+    # 리서치 결과(Evidence) 추가
+    if evidence:
+        evidence_text = "\n".join(evidence)
+        user_prompt += f"\n\n[참고용 리서치 자료] (팩트와 수치를 적극 활용하세요):\n{evidence_text}"
+    
+    # Blueprint 컨텍스트 추가
+    if context_hint:
+        user_prompt += f"\n\n[기존 기획 메모] (반드시 더 상세하게 확장할 것):\n{context_hint}"
+>>>>>>> main
     
     messages = [
         SystemMessage(content=system_prompt),
@@ -94,7 +109,8 @@ def generate_section_from_blueprint(
     return PlanSection(
         section_number=section_number,
         title=blueprint_item.title,
-        content=content
+        content=content,
+        evidence=evidence_for_record or evidence
     )
 
 
@@ -112,58 +128,84 @@ def compose_plan_markdown(
     
     md_parts = []
     
-    # 제목
-    md_parts.append(f"# {plan.idea.title}")
-    md_parts.append("")
-    md_parts.append(f"> {plan.idea.summary}")
-    md_parts.append("")
-    md_parts.append(f"*생성 방법: {plan.method}*")
-    md_parts.append("")
-    md_parts.append("---")
-    md_parts.append("")
+    # 1. 헤더 (제목, 요약, 메타 등)
+    md_parts.append(format_plan_header(plan))
     
-    # 목차
-    md_parts.append("## 목차")
-    md_parts.append("")
-    for item in plan.toc.items:
-        indent = "  " * (item.section_number.count("."))
-        md_parts.append(f"{indent}- [{item.section_number}. {item.title}](#{item.section_number.replace('.', '')}-{item.title.replace(' ', '-').lower()})")
-    md_parts.append("")
-    md_parts.append("---")
-    md_parts.append("")
+    # 2. 목차
+    md_parts.append(format_plan_toc(plan))
     
-    # 가이드라인 (방법 B - Blueprint에서도 사용 가능)
-    has_guidelines = any(item.guideline for item in plan.toc.items)
-    if has_guidelines:
-        md_parts.append("## 📋 섹션별 가이드라인")
-        md_parts.append("")
-        md_parts.append("> 이 섹션은 각 챕터 작성 시 사용된 가이드라인입니다.")
-        md_parts.append("")
-        for item in plan.toc.items:
-            if item.guideline:
-                md_parts.append(f"### {item.section_number}. {item.title}")
-                md_parts.append("")
-                md_parts.append(item.guideline)
-                md_parts.append("")
-        md_parts.append("---")
-        md_parts.append("")
-    
-    # 본문 + 시각화
+    # 3. 본문 + 시각화
     for section in plan.sections:
-        level = section.section_number.count(".") + 2
-        header_prefix = "#" * level
-        md_parts.append(f"{header_prefix} {section.section_number}. {section.title}")
-        md_parts.append("")
-        md_parts.append(section.content)
-        md_parts.append("")
-        
-        # 시각화 삽입
-        if section.section_number in visual_by_section:
-            visual = visual_by_section[section.section_number]
-            md_parts.append(_format_visual_block(visual))
-            md_parts.append("")
+        visual = visual_by_section.get(section.section_number)
+        md_parts.append(format_section_content(section, visual))
     
     return "\n".join(md_parts)
+
+
+def format_plan_header(plan: GeneratedPlan) -> str:
+    """기획서 헤더 포맷팅 (제목, 요약, 구분선)"""
+    parts = []
+    parts.append(f"# {plan.idea.title}")
+    parts.append("")
+    parts.append(f"> {plan.idea.summary}")
+    parts.append("")
+    parts.append(f"*생성 방법: {plan.method}*")
+    parts.append("")
+    parts.append("---")
+    parts.append("")
+    return "\n".join(parts)
+
+
+def format_plan_toc(plan: GeneratedPlan) -> str:
+    """목차 및 가이드라인 포맷팅"""
+    parts = []
+    
+    # 목차
+    parts.append("## 목차")
+    parts.append("")
+    for item in plan.toc.items:
+        indent = "  " * (item.section_number.count("."))
+        parts.append(f"{indent}- [{item.section_number}. {item.title}](#{item.section_number.replace('.', '')}-{item.title.replace(' ', '-').lower()})")
+    parts.append("")
+    parts.append("---")
+    parts.append("")
+    
+    # 가이드라인 (선택적)
+    has_guidelines = any(item.guideline for item in plan.toc.items)
+    if has_guidelines:
+        parts.append("## 📋 섹션별 가이드라인")
+        parts.append("")
+        parts.append("> 이 섹션은 각 챕터 작성 시 사용된 가이드라인입니다.")
+        parts.append("")
+        for item in plan.toc.items:
+            if item.guideline:
+                parts.append(f"### {item.section_number}. {item.title}")
+                parts.append("")
+                parts.append(item.guideline)
+                parts.append("")
+        parts.append("---")
+        parts.append("")
+        
+    return "\n".join(parts)
+
+
+def format_section_content(section: PlanSection, visual: "VisualArtifact" = None) -> str:
+    """개별 섹션 본문 및 시각화 포맷팅"""
+    parts = []
+    level = section.section_number.count(".") + 2
+    header_prefix = "#" * level
+    
+    parts.append(f"{header_prefix} {section.section_number}. {section.title}")
+    parts.append("")
+    parts.append(section.content)
+    parts.append("")
+    
+    # 시각화 삽입
+    if visual:
+        parts.append(_format_visual_block(visual))
+        parts.append("")
+        
+    return "\n".join(parts)
 
 
 def _format_visual_block(visual: "VisualArtifact") -> str:
@@ -231,4 +273,3 @@ def generate_partial_edit(
     response = chat.invoke(messages)
     
     return response.content.strip()
-
