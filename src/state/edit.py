@@ -10,7 +10,6 @@ class EditInternalState(GlobalState):
     편집 파이프라인 상태
     
     [입력]
-    - target_section_id: 수정할 섹션 ID
     - instruction: 유저의 수정 요청사항
     - granularity: 수정 단위 (section/paragraph/sentence)
     - edit_range_start: 부분 수정 시 범위
@@ -24,7 +23,6 @@ class EditInternalState(GlobalState):
     """
     
     # --- Input Fields ---
-    target_section_id: Annotated[str, "수정 대상 섹션 ID"]
     instruction: Annotated[str, "유저의 수정 요청"]
     
     # Option: Granular Edit
@@ -33,7 +31,6 @@ class EditInternalState(GlobalState):
     edit_range_end: Annotated[Optional[int], "수정 끝 라인 인덱스 (Inclusive)"]
 
     # --- Internal Logic ---
-    match_section_index: Annotated[int, "타겟 섹션의 Blueprint 인덱스"]
     retry_count: Annotated[int, "재시도 횟수"]
     
     # --- Output Fields ---

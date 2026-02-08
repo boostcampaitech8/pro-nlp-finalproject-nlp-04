@@ -10,8 +10,7 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
     """
     섹션 또는 부분(문단/문장) 재생성 노드
     """
-    print(f"[Edit] 섹션 {state['target_section_id']} 재생성 중... (요청: {state['instruction']})")
-    
+
     # GlobalState에서 데이터 추출
     blueprint_list = state.get("idea", {}).get("blueprint", [])
     if not blueprint_list:
@@ -140,26 +139,30 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
 
 def _calculate_section_index(state: EditInternalState) -> int:
     """
-    state의 target_section_id를 사용하여 Blueprint 리스트에서의 인덱스를 찾습니다.
+    state의 정보를 바탕으로 Blueprint 리스트에서의 인덱스를 찾습니다.
+    (edit_range_start & final_markdown 이용)
     """
-    target_id = state.get("target_section_id")
-    
-    # 1. target_id가 숫자인 경우
-    if str(target_id).isdigit():
-        return int(target_id)
-        
-    toc = state.get("idea", {}).get("toc", [])
-    for idx, item in enumerate(toc):
-        if isinstance(item, str):
-            if item == str(target_id):
-                return idx
-            continue
 
-        sec_num = item.get("section_number") if isinstance(item, dict) else getattr(item, "section_number", None)
-        title = item.get("title") if isinstance(item, dict) else getattr(item, "title", None)
-        
-        if str(sec_num) == str(target_id) or title == str(target_id):
-            return idx
+    range_start = state.get("edit_range_start")
+    final_markdown = state.get("plan", {}).get("final_markdown", "")
+    
+    if range_start is not None and final_markdown:
+        lines = final_markdown.split('\n')
+        if range_start < len(lines):
+            # 위로 올라가며 # (Level 1 Header) 개수 세기
+            header_count = 0
+            safe_start = max(0, range_start)
+            
+            # 0번 라인부터 현재 라인까지 스캔하여 헤더 개수 카운트
+            # (Blueprint 순서는 문서의 섹션 순서와 동일하다고 가정)
+            for i in range(safe_start + 1): # 0 ~ safe_start
+                line = lines[i]
+                if line.lstrip().startswith('# ') or line.lstrip() == '#':
+                    header_count += 1
+            
+            if header_count > 0:
+                # 1번째 섹션 -> 인덱스 0
+                return header_count - 1
             
     return -1
 
