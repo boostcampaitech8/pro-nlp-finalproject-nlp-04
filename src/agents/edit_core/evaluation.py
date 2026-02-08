@@ -6,7 +6,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from models.llm import get_llm
 from state.edit import EditInternalState
 
-def evaluate_section_node(state: EditInternalState) -> EditInternalState:
+def evaluate_node(state: EditInternalState) -> EditInternalState:
     """
     재생성된 섹션이 유저의 수정 요청을 잘 반영했는지 평가합니다.
     """
