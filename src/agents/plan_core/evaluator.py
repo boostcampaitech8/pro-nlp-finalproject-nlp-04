@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from agents.plan_core.schemas import BlueprintItem
 from models.llm import get_llm
+from prompts.plan_prompts import RESEARCH_NEED_PROMPT
 
 
 # ===========================
@@ -22,101 +23,93 @@ from models.llm import get_llm
 class ResearchNeedScore(BaseModel):
     """Pre-write: 리서치 필요도 평가 결과"""
     score: float = Field(..., ge=0.0, le=1.0, description="리서치 필요도 (높을수록 필요)")
+    needs_research: bool = Field(..., description="리서치 필요 여부")
+    research_goal: str = Field(default="", description="리서치 목적 및 필요 정보 (Context & Intent)")
+    reasoning: str = Field(default="", description="평가 근거 및 공백 분석")
     
-    # 세부 평가 요소
-    fact_requirement: float = Field(..., ge=0.0, le=1.0, description="팩트/수치 요구 수준")
-    external_dependency: float = Field(..., ge=0.0, le=1.0, description="외부 정보 의존도")
-    hallucination_risk: float = Field(..., ge=0.0, le=1.0, description="할루시네이션 발생 위험도")
-    
-    needs_research: bool = Field(..., description="리서치 필요 여부 (score >= 0.5)")
-    reasoning: str = Field(default="", description="점수 산정 근거")
-    suggested_queries: List[str] = Field(default_factory=list, description="추천 검색 쿼리")
-
-
-class GroundednessScore(BaseModel):
-    """Post-write: 근거 기반 품질 평가 결과"""
-    score: float = Field(..., ge=0.0, le=1.0, description="근거 품질 (높을수록 OK)")
-    
-    # 세부 점수
-    cited_claim_ratio: float = Field(..., ge=0.0, le=1.0, description="인용 마커가 붙은 주장 비율")
-    entailment_ratio: float = Field(..., ge=0.0, le=1.0, description="근거로 뒷받침되는 주장 비율")
-    
-    unsupported_claims: List[str] = Field(default_factory=list, description="근거 없는 주장 목록")
-    reasoning: str = Field(default="", description="점수 산정 근거")
+    # Optional fields for backward compatibility or detailed analysis
+    fact_requirement: Optional[float] = Field(None, description="(Deprecated) 팩트 요구 수준")
+    external_dependency: Optional[float] = Field(None, description="(Deprecated) 외부 의존도")
+    hallucination_risk: Optional[float] = Field(None, description="(Deprecated) 할루시네이션 위험")
 
 
 # ===========================
 # Stage 1: Pre-write ResearchNeedScore
 # ===========================
 
-RESEARCH_NEED_PROMPT = """
-다음 기획서 섹션을 작성하기 전, 웹 리서치가 필요한지 평가하세요.
 
-[섹션 정보]
-제목: {title}
-가이드라인: {guideline}
-
-[평가 기준]
-
-1. **fact_requirement** (팩트/수치 요구 수준)
-   - 시장 규모, 경쟁사, 통계, 법규, KPI 등 외부 데이터가 필요하면 높음
-   - 서비스 소개, 팀 역량, 비전 등 자체 정보이면 낮음
-
-2. **external_dependency** (외부 정보 의존도)
-   - "내 아이디어 설명" → 낮음 (0.0~0.3)
-   - "시장/경쟁/트렌드 분석" → 높음 (0.7~1.0)
-   
-3. **hallucination_risk** (할루시네이션 위험도)
-   - 검증 불가능한 수치/사실을 LLM이 지어낼 위험이 높으면 높음
-   - 창의적 아이디어, 일반 상식이면 낮음
-
-[최종 score 계산]
-score = (fact_requirement + external_dependency + hallucination_risk) / 3
-
-[needs_research 판단]
-- score >= 0.5 이면 needs_research = true
-
-[suggested_queries]
-리서치가 필요한 경우, 검색에 사용할 쿼리 2~3개를 제안하세요.
-"""
 
 
 def evaluate_research_need(
     blueprint_item: BlueprintItem,
-    planning_style: str = None
+    planning_style: str = "Business",
+    rationale: str = ""
 ) -> ResearchNeedScore:
     """
     섹션 작성 전 리서치 필요도 평가 (Pre-write, LLM 기반)
     
     Args:
         blueprint_item: 평가할 BlueprintItem
-        planning_style: 기획 스타일 (Optional context)
+        planning_style: 기획 스타일
+        rationale: 기획 의도
     
     Returns:
         ResearchNeedScore: 리서치 필요도 점수
     """
     chat = get_llm(max_tokens=2048, reasoning_effort="low")
-    structured_llm = chat.with_structured_output(ResearchNeedScore)
     
-    prompt = RESEARCH_NEED_PROMPT.format(
+    # [Fix] with_structured_output 대신 JsonOutputParser 사용 (호환성/파싱 개선)
+    from langchain_core.output_parsers import JsonOutputParser
+    # from langchain_core.prompts import PromptTemplate # 이미 ChatPromptTemplate을 사용하거나, 문자열 포맷팅 사용 중
+    
+    parser = JsonOutputParser(pydantic_object=ResearchNeedScore)
+    
+    # 프롬프트에 포맷 지침 추가 (Parser가 제공하는 지침 활용 가능하지만, 현재 프롬프트가 강력함)
+    formatted_prompt = RESEARCH_NEED_PROMPT.format(
+        planning_style=planning_style or "Business",
+        rationale=rationale or "정보 없음",
         title=blueprint_item.title,
         guideline=blueprint_item.guideline or "없음"
     )
     
-    try:
-        result = structured_llm.invoke(prompt)
-        return result
-    except Exception as e:
-        # 실패 시 기본값 반환 (낮은 점수 = 리서치 불필요)
-        return ResearchNeedScore(
-            score=0.3,
-            fact_requirement=0.3,
-            external_dependency=0.3,
-            hallucination_risk=0.3,
-            needs_research=False,
-            reasoning=f"평가 중 오류 발생: {str(e)}",
-            suggested_queries=[]
-        )
+    import json
+    import re
+
+    max_retries = 3
+    last_error = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            # Chain 실행
+            response = chat.invoke(formatted_prompt)
+            content = response.content if hasattr(response, 'content') else str(response)
+            
+            try:
+                # 1. JsonOutputParser 시도 (마크다운 블록 제거 포함)
+                result_dict = parser.parse(content)
+                return ResearchNeedScore(**result_dict)
+            except Exception as parse_error:
+                # 2. 파싱 오류 시 최소한의 복구 시도 (정규식으로 JSON 추출)
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    result_dict = json.loads(json_match.group())
+                    return ResearchNeedScore(**result_dict)
+                raise parse_error
+                
+        except Exception as e:
+            last_error = e
+            print(f"[ResearchEvaluator] Attempt {attempt}/{max_retries} failed: {str(e)}")
+            if attempt < max_retries:
+                print(f"[ResearchEvaluator] Retrying...")
+                continue
+    
+    # 모든 재시도 실패 시
+    print(f"[ResearchEvaluator] All {max_retries} attempts failed. Returning default.")
+    return ResearchNeedScore(
+        score=0.3,
+        needs_research=False,
+        reasoning=f"평가 실패 (최대 재시도 초과): {str(last_error)}"
+    )
 
 
 # ===========================
