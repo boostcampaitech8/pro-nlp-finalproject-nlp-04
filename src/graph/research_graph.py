@@ -147,4 +147,5 @@ if __name__ == '__main__':
     inputs = {"question": "게임 시스템 개선을 위한 기획서 양식이 필요해."}
     config = {"configurable": {"thread_id": "1"}}
 
+    # output = research_subgraph.invoke(inputs, config)_subgraph.invoke(inputs, config)
     output = research_subgraph.invoke(inputs, config)
