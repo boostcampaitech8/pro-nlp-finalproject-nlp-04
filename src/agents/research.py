@@ -36,7 +36,7 @@ def generate_queries(state: ResearchState):
         ("human", "{question}")
     ])
     
-    llm = ChatUpstage(model=MODEL_NAME_MINI, temperature=0.1, api_key=API_KEY)
+    llm = ChatUpstage(model=MODEL_NAME_PRO, temperature=0.1, api_key=API_KEY)
     structured_llm = llm.with_structured_output(SearchQueries)
     
     query_chain = prompt | structured_llm

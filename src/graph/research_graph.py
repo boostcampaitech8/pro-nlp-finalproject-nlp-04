@@ -71,8 +71,8 @@ def run_research_for_plan(state: dict) -> dict:
     queries = research_info.get('queries', [])
     section_context = research_info.get('section_context', '')
     
-    if not queries:
-        # 쿼리가 없으면 리서치 완료로 처리
+    if not queries and not section_context:
+        # 쿼리와 컨텍스트 모두 없으면 리서치 완료로 처리
         state['research'] = {
             **research_info,
             'needs_research': False,
@@ -147,4 +147,5 @@ if __name__ == '__main__':
     inputs = {"question": "게임 시스템 개선을 위한 기획서 양식이 필요해."}
     config = {"configurable": {"thread_id": "1"}}
 
+    # output = research_subgraph.invoke(inputs, config)_subgraph.invoke(inputs, config)
     output = research_subgraph.invoke(inputs, config)
