@@ -13,7 +13,8 @@ class EditInternalState(GlobalState):
     - target_section_id: 수정할 섹션 ID
     - instruction: 유저의 수정 요청사항
     - granularity: 수정 단위 (section/paragraph/sentence)
-    - edit_range_start/end: 부분 수정 시 범위
+    - edit_range_start: 부분 수정 시 범위
+    - edit_range_end: 부분 수정 시 범위 (legacy)
     - idea['blueprint']: 원본 기획 데이터 참조
     
     [출력]

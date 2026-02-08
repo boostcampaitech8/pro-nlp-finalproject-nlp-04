@@ -6,7 +6,7 @@ from agents.plan_core.schemas import StructuredInput, BlueprintItem
 from state.edit import EditInternalState
 from prompts.edit_prompts import SECTION_REGENERATION_GUIDELINE_TEMPLATE
 
-def regenerate_section_node(state: EditInternalState) -> EditInternalState:
+def regenerate_node(state: EditInternalState) -> EditInternalState:
     """
     섹션 또는 부분(문단/문장) 재생성 노드
     """
@@ -24,16 +24,65 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     target_item_dict = blueprint_list[target_index]
     target_item = BlueprintItem(**target_item_dict)
     
-    # -------------------------------------------------------
-    # A. Granular Edit (Paragraph/Sentence) - Range Based
-    # -------------------------------------------------------
     granularity = state.get("granularity", "section")
     range_start = state.get("edit_range_start")
-    range_end = state.get("edit_range_end")
     
-    # content가 존재하고, 범위가 명시된 경우 부분 수정 진행
-    if granularity in ["paragraph", "sentence", "block"] and range_start is not None:
+    # -------------------------------------------------------
+    # Case A: Section Edit (전체 재생성)
+    # -------------------------------------------------------
+    if granularity == "section":
+        print(f"[Edit] 섹션 전체 재생성 모드")
+        
+        # Instruction Injection
+        original_guideline = target_item.guideline or ""
+        
+        # Feedback Injection (If Retry)
+        feedback_section = ""
+        if state.get("feedback"):
+            feedback_section = f"\n\n[PREVIOUS FEEDBACK (Must Fix)]: {state['feedback']}"
+            print(f"[Edit] 피드백 반영하여 재생성: {state['feedback']}")
+            
+        injected_guideline = SECTION_REGENERATION_GUIDELINE_TEMPLATE.format(
+            original_guideline=original_guideline,
+            instruction=state['instruction'],
+            feedback_section=feedback_section
+        )
+        
+        # 수정된 아이템 생성 (Generator에 전달용)
+        modified_item = BlueprintItem(
+            title=target_item.title,
+            guideline=injected_guideline,
+            content="" # content를 비워야 Generator가 LLM을 호출함
+        )
+        
+        # StructuredInput 구성
+        idea = state.get("idea", {})
+        structured_input = StructuredInput(
+            planning_style=idea.get("planning_style", "General"),
+            rationale=idea.get("rationale", ""),
+            toc=idea.get("toc", []),
+            blueprint=[BlueprintItem(**b) for b in blueprint_list]
+        )
+        
+        # Generator 호출
+        new_section = generate_section_from_blueprint(
+            structured_input=structured_input,
+            blueprint_item=modified_item,
+            section_index=target_index,
+            previous_sections=[] 
+        )
+        
+        # 결과 저장
+        state["regenerated_content"] = new_section.content
+        state["used_guideline"] = injected_guideline
+        print(f"[Edit] 재생성 완료 (Length: {len(new_section.content)})")
+        
+        return state
 
+    # -------------------------------------------------------
+    # Case B: Granular Edit (Paragraph/Sentence)
+    # -------------------------------------------------------
+    elif granularity in ["paragraph", "sentence"] and range_start is not None:
         
         # 현재 컨텐츠 분리 (줄바꿈 기준)
         current_content = target_item.content or ""
@@ -79,59 +128,10 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
             "used_guideline": f"Partial Edit ({granularity}): {state['instruction']}",
             "edit_range_end": safe_end
         }
-
-    # -------------------------------------------------------
-    # B. Section Edit (Legacy) - Whole Section Regeneration
-    # -------------------------------------------------------
     
-    # 2. Instruction Injection
-    # 기존 가이드라인 뒤에 유저 요청을 강력하게 붙입니다.
-    original_guideline = target_item.guideline or ""
-    
-    # Feedback Injection (If Retry)
-    feedback_section = ""
-    if state.get("feedback"):
-        feedback_section = f"\n\n[PREVIOUS FEEDBACK (Must Fix)]: {state['feedback']}"
-        print(f"[Edit] 피드백 반영하여 재생성: {state['feedback']}")
-        
-    injected_guideline = SECTION_REGENERATION_GUIDELINE_TEMPLATE.format(
-        original_guideline=original_guideline,
-        instruction=state['instruction'],
-        feedback_section=feedback_section
-    )
-    
-    # 수정된 아이템 생성 (Generator에 전달용)
-    modified_item = BlueprintItem(
-        target_id=target_item.target_id,
-        title=target_item.title,
-        guideline=injected_guideline,
-        content="" # content를 비워야 Generator가 LLM을 호출함
-    )
-    
-    # 3. StructuredInput 구성
-    # GlobalState.idea에서 정보 가져오기
-    idea = state.get("idea", {})
-    structured_input = StructuredInput(
-        planning_style=idea.get("planning_style", "General"),
-        rationale=idea.get("rationale", ""),
-        toc=idea.get("toc", []),
-        blueprint=[BlueprintItem(**b) for b in blueprint_list]
-    )
-    
-    # 4. Generator 호출
-    new_section = generate_section_from_blueprint(
-        structured_input=structured_input,
-        blueprint_item=modified_item,
-        section_index=target_index,
-        previous_sections=[] # MVP: 이전 섹션 문맥 없이 독립 생성
-    )
-    
-    # 5. 결과 저장
-    state["regenerated_content"] = new_section.content
-    state["used_guideline"] = injected_guideline
-    print(f"[Edit] 재생성 완료 (Length: {len(new_section.content)})")
-    
-    return state
+    else:
+        print(f"[Edit] Error: Invalid granularity or missing range. (Granularity: {granularity})")
+        return state
 
 
 def _calculate_range_end(lines: list[str], start_idx: int, granularity: str) -> int:
@@ -140,16 +140,9 @@ def _calculate_range_end(lines: list[str], start_idx: int, granularity: str) -> 
     """
     if start_idx >= len(lines):
         return start_idx
-        
-    # 1. Paragraph: 다음 빈 줄 전까지
+    
+    # paragraph: 동일하거나 더 높은 들여쓰기 레벨이 나올 때까지
     if granularity == "paragraph":
-        for i in range(start_idx + 1, len(lines)):
-            if not lines[i].strip():
-                return i - 1
-        return len(lines) - 1
-        
-    # 2. Block: 동일하거나 더 높은 들여쓰기 레벨이 나올 때까지
-    if granularity == "block":
         start_line = lines[start_idx]
         if not start_line.strip():
             return start_idx
@@ -166,7 +159,6 @@ def _calculate_range_end(lines: list[str], start_idx: int, granularity: str) -> 
             current_indent = len(line) - len(line.lstrip())
             
             # 기준보다 들여쓰기가 적거나 같으면 블록 종료 (형제 or 부모 노드 도달)
-            # 단, block 타입은 형제 노드 전까지 잡아주는게 일반적
             if current_indent <= base_indent:
                 return i - 1
                 
