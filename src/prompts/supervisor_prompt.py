@@ -77,12 +77,33 @@ Do not include anything outside this JSON.
 '''
 
 MESSAGE_SUMMARY_PROMPT = """
-대화들을 종합해서, 자연어 문단으로 요약하라.
+Your role is to Summarize the conversation into one or two natural paragraphs in plain prose.
+The summary must be written in Korean.
+
+Critical constraints:
+- Use only information that is explicitly stated in the conversation.
+- Do not introduce, invent, or assume any details that are not present.
+- Do not infer, extrapolate, or expand the meaning; only reorganize and rephrase what is given.
+- If the conversation contains insufficient explicit information, keep the output minimal rather than adding detail.
+
+Style constraints:
+- Do not use an explanatory or report-like tone.
+- Remove redundant phrasing and question–answer back-and-forth.
+
+Output format:
+- No bullet points or numbering.
+- One to two coherent, natural paragraphs only.
+"""
+
+IDEA_SUMMARY_PROMPT = """
+사용자와의 대화에서 추출한 사용자의 발화들을 종합해서,
+사용자가 스스로 자신의 아이디어를 말하는 것처럼 요약하라.
 
 중요 규칙:
-- 대화에 명시적으로 포함된 내용만 사용한다
-- 대화에 없는 세부 요소를 새로 만들어내지 않는다
-- 의미를 추론하거나 확장하지 말고, 표현만 정리한다
+- 사용자 발화에 포함된 내용만 사용한다
+- 발화에 없는 세부 설정, 기능, 고민, 의도를 절대 추가하지 않는다
+- 의미를 추론하거나 기획적으로 보완하지 않는다
+- 표현을 정리하고 연결하는 수준에서만 요약한다
 
 문체 규칙:
 - 설명체나 보고서 문체를 사용하지 않는다
@@ -91,7 +112,7 @@ MESSAGE_SUMMARY_PROMPT = """
 
 출력 형식:
 - bullet, 번호 금지
-- 1~2개의 자연스러운 문단
+- 사용자 발화보다 짧게 요약한다
 """
 
 SUPERVISOR_CHAT_PROMPT = """

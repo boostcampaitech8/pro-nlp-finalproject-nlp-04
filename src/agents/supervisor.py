@@ -1,7 +1,7 @@
 from state.base import GlobalState
 from models.llm import get_llm
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
-from prompts.supervisor_prompt import ROUTING_PROMPT, MESSAGE_SUMMARY_PROMPT, SUPERVISOR_CHAT_PROMPT
+from prompts.supervisor_prompt import ROUTING_PROMPT, MESSAGE_SUMMARY_PROMPT, IDEA_SUMMARY_PROMPT, SUPERVISOR_CHAT_PROMPT
 from langchain_core.output_parsers import JsonOutputParser
 
 from agents.plan_core.logger import get_logger, LogLevel
@@ -37,7 +37,6 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                 'supervision': {
                     **state['supervision'],
                     'last_decision': 'RUN_IDEA_STRUCTURING',
-                    'request_type': 'text',
                 }
             }
 
@@ -166,13 +165,13 @@ def supervisor_node(state: GlobalState) -> GlobalState:
             }
         }
 
-def summarize_messages(messages: list[BaseMessage]) -> str:
+def summarize_messages(prompt: str, messages: list[BaseMessage]) -> str:
     if not messages:
         return ""
 
     joined_msgs = "대화 내용:\n- " + "\n- ".join([f"{m.type}: {m.content}" for m in messages])
 
-    result = get_llm(max_tokens=5000).invoke([SystemMessage(content=MESSAGE_SUMMARY_PROMPT), HumanMessage(content=joined_msgs)])
+    result = get_llm(max_tokens=10000).invoke([SystemMessage(content=prompt), HumanMessage(content=joined_msgs)])
     return result.content.strip()
 
 def prepare_idea_structuring(state: GlobalState) -> GlobalState:
@@ -254,7 +253,7 @@ def summary_state(state: GlobalState) -> str:
     filled_info = [section.get('title') for section in state['idea']['blueprint'] if section.get('is_required_from_user') == False]
     missing_information = [title for title in required_info if title not in filled_info]
 
-    message_history = summarize_messages(state["messages"])
+    message_history = summarize_messages(MESSAGE_SUMMARY_PROMPT, state["messages"])
     
     return f'''
         Goal: {state['supervision']['goal']}
