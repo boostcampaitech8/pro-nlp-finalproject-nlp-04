@@ -50,6 +50,31 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                 'pending_request': '안녕하세요. 기획서 작성을 도와드릴까요?',
             }
         }
+    
+    # 기획서 작성 중 새로고침 후 리서치 필요 여부 확인
+    elif state['supervision']['last_decision'] == 'Refresh':
+        if state['plan']['plan_status'] == 'WAITING_FOR_RESEARCH':
+            # 리서치가 필요한 경우 → Research Agent 호출
+            logger.log(LogLevel.INFO, "supervisor", 
+                f"Routing to RUN_RESEARCH (Section: {state['research']['section_context']})")
+            return {
+                'supervision': {
+                    **state['supervision'],
+                    'last_decision': 'RUN_RESEARCH',
+                    'current_task': 'research',
+                    'pending_research_section': state['research']['section_context'],
+                }
+            }
+        elif state['plan']['plan_status'] == 'IN_PROGRESS':
+            # 아직 남은 섹션이 있는 경우 → Plan Agent 재호출 (Loop)
+            logger.log(LogLevel.INFO, "supervisor", "Plan IN_PROGRESS. Looping RUN_PLANNING...")
+            return {
+                'supervision': {
+                    **state['supervision'],
+                    'last_decision': 'RUN_PLANNING',
+                    'current_task': 'planning',
+                }
+            }
     # 서브에이전트 호출 이후
     elif state['supervision']['last_decision'] not in ['ASK_USER', 'supervisor_node']:
         last_decision = state['supervision']['last_decision']
@@ -78,37 +103,13 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     }
                 }
         elif last_decision == 'RUN_PLANNING':
-            # =====================================================
-            # [Research 연동] Plan Agent 실행 후 리서치 필요 여부 확인
-            # 
-            # Plan Agent에서 plan_status='WAITING_FOR_RESEARCH'로 설정하면
-            # Supervisor는 이를 감지하여 Research Agent를 호출
-            # =====================================================
-            plan_data = state.get('plan', {})
-            research_state = state.get('research', {})
-            
-            status = plan_data.get('plan_status')
-            
-            if status == 'WAITING_FOR_RESEARCH':
-                # 리서치가 필요한 경우 → Research Agent 호출
-                logger.log(LogLevel.INFO, "supervisor", 
-                    f"Routing to RUN_RESEARCH (Section: {research_state.get('section_context', '')})")
+            # 기획서 작성 중 (섹션별 생성시마다 페이지 새로고침)
+            if state['plan']['plan_status'] in ['WAITING_FOR_RESEARCH', 'IN_PROGRESS']:
                 return {
                     'supervision': {
                         **state['supervision'],
-                        'last_decision': 'RUN_RESEARCH',
-                        'current_task': 'research',
-                        'pending_research_section': research_state.get('section_context', ''),
-                    }
-                }
-            elif status == 'IN_PROGRESS':
-                # 아직 남은 섹션이 있는 경우 → Plan Agent 재호출 (Loop)
-                logger.log(LogLevel.INFO, "supervisor", "Plan IN_PROGRESS. Looping RUN_PLANNING...")
-                return {
-                    'supervision': {
-                        **state['supervision'],
-                        'last_decision': 'RUN_PLANNING',
-                        'current_task': 'planning',
+                        'last_decision': 'Refresh',
+                        'request_type': 'text',
                     }
                 }
             
@@ -121,7 +122,6 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     'last_decision': 'ASK_USER',
                     'current_task': 'planning',
                     'pending_request': '기획서 작성이 완료되었습니다. 추가 수정이 필요하신 부분을 알려주세요.',
-                    'request_type': 'text',
                 }
             }
         

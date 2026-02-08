@@ -33,7 +33,8 @@ supervisor_graph.add_conditional_edges(
         "RUN_IDEA_STRUCTURING": "prepare_idea_structuring",
         "RUN_PLANNING": "plan_phase",
         "RUN_RESEARCH": "research_phase",
-        "supervisor_node": "supervisor"
+        "supervisor_node": "supervisor",
+        "Refresh": END
     }
 )
 supervisor_graph.add_edge("ask_user", END)

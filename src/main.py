@@ -113,3 +113,7 @@ with right_col:
         
         with st.container(height=700, border=True):
             render_question_view(st.session_state.state['input_request'])
+
+if st.session_state.state['supervision']['last_decision'] == 'Refresh':
+    st.session_state.state = supervisor_app.invoke(st.session_state.state)
+    st.rerun()

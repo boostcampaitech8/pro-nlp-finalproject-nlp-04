@@ -139,7 +139,6 @@ def render_question_view(questions):
     if st.button("✨ 기획서 생성하기"):
         st.session_state.state['user_response'] = idea_answers
         st.session_state.state = supervisor_app.invoke(st.session_state.state)
-        st.rerun()
 
 def render_plan_view():
     st.markdown('<p class="section-title">📄 Drafting Canvas</p>', unsafe_allow_html=True)
