@@ -30,6 +30,7 @@ class SupervisionState(TypedDict):
     summary: Annotated[str, '현재 상태 요약']
     pending_request: Annotated[str | None, '에이전트의 사용자 입력 요청']
     request_type: Annotated[str | None, '요청 타입']
+    edit_request: Annotated[Dict[str, Any], '수정 요청']
 
 
 class VisualState(TypedDict):

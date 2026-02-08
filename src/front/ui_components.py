@@ -1,7 +1,8 @@
 import streamlit as st
 from graph.supervisor_graph import supervisor_app
 from pathlib import Path
-
+import re
+import streamlit.components.v1 as components
 
 def init_page():
     # 페이지 설정
@@ -138,31 +139,223 @@ def render_question_view(questions):
 
     if st.button("✨ 기획서 생성하기"):
         st.session_state.state['user_response'] = idea_answers
-        st.session_state.state = supervisor_app.invoke(st.session_state.state)
+        st.session_state.state['supervision']['request_type'] = 'text'
+        st.session_state.phase = 'form_response'
+        st.rerun()
+
+def st_mermaid(code: str):
+    components.html(
+        f"""
+        <style>
+            body {{
+                margin: 0;
+                padding: 0;
+            }}
+
+            .mermaid-wrapper {{
+                display: flex;
+                justify-content: center;   /* 가로 중앙 */
+                align-items: center;       /* 세로 중앙 */
+                width: 100%;
+            }}
+
+            .mermaid svg {{
+                max-width: 100%;
+                height: auto;
+            }}
+        </style>
+        <div class="mermaid-wrapper">
+            <div class="mermaid">
+                {code}
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+        <script>
+            mermaid.initialize({{
+                startOnLoad: true,
+                theme: "default"
+            }});
+        </script>
+        """,
+        height=400,
+        scrolling=True,
+    )
+
+
+def extract_heading_line_map(markdown: str):
+    """
+    return:
+    {
+        "h1-3": {
+            "level": 1,
+            "title": "기능 개요",
+            "line": 12
+        },
+        ...
+    }
+    """
+    heading_map = {}
+    lines = markdown.splitlines()
+
+    h1_count = 0
+    h2_count = 0
+
+    for idx, line in enumerate(lines):
+        if line.startswith("# "):
+            h1_count += 1
+            key = f"h1-{h1_count}"
+            heading_map[key] = {
+                "level": 1,
+                "title": line[2:].strip(),
+                "line": idx,   # ✅ 0-based line number
+            }
+
+        elif line.startswith("## "):
+            h2_count += 1
+            key = f"h2-{h2_count}"
+            heading_map[key] = {
+                "level": 2,
+                "title": line[3:].strip(),
+                "line": idx,
+            }
+
+    return heading_map
+
+
+def _render_text_and_images(text: str):
+    parts = re.split(r"!\[(.*?)\]\((.*?)\)", text)
+    for i, part in enumerate(parts):
+        if i % 3 == 0:
+            if part.strip():
+                st.markdown(part)
+        elif i % 3 == 1:
+            title = part # 이미지 제목, 필요시 caption으로 사용
+        else:
+            st.image(part)
+
+
+def render_heading(level: int, text: str, key: str):
+    is_active = st.session_state.get("active_heading") == key
+    heading_map = st.session_state.get("heading_line_map", {})
+
+    def activate():
+        if is_active:
+            st.session_state["active_heading"] = None
+        else:
+            st.session_state["active_heading"] = key
+
+    with st.container():
+        cols = st.columns([0.85, 0.15])
+
+        with cols[0]:
+            st.markdown(f"{'#' * level} {text}")
+
+        with cols[1]:
+            st.button("", key=f"btn-{key}", icon="✏️", on_click=activate)
+
+        # 👉 버튼 바로 아래에 입력창 렌더
+        if is_active:
+            user_input = st.text_area(
+                "이 섹션에 대한 지시",
+                key=f"input-{key}",
+                placeholder="이 섹션에 대한 지시를 입력하세요",
+            )
+            if st.button("적용", key=f"apply-{key}"):
+                meta = heading_map.get(key)
+
+                st.session_state.state['supervision']['edit_request'] = {
+                    'require_edit': True,
+                    'target_section_id': meta['title'],
+                    "instruction": user_input,
+                    "granularity": "section",
+                    "edit_range_start": meta["line"] if meta else 0,
+                }
+
+                st.session_state["active_heading"] = None
+                st.session_state.state = supervisor_app.invoke(st.session_state.state)
+                st.rerun()
+
+
+def _render_text_images_and_headings(text: str):
+    lines = text.splitlines()
+    buffer = []
+
+    def flush():
+        if buffer:
+            _render_text_and_images("\n".join(buffer))
+            buffer.clear()
+
+    for idx, line in enumerate(lines):
+        if line.startswith("# "):
+            flush()
+            render_heading(1, line[2:].strip(), f"h1-{idx}")
+        elif line.startswith("## "):
+            flush()
+            render_heading(2, line[3:].strip(), f"h2-{idx}")
+        else:
+            buffer.append(line)
+
+    flush()
+
+
+def st_markdown(markdown_string: str):
+    lines = markdown_string.splitlines()
+    buffer = []
+    in_mermaid = False
+    mermaid_lines = []
+
+    def flush_buffer():
+        if buffer:
+            _render_text_images_and_headings("\n".join(buffer))
+            buffer.clear()
+
+    for line in lines:
+        if line.strip().startswith("```mermaid"):
+            flush_buffer()
+            in_mermaid = True
+            mermaid_lines.clear()
+            continue
+
+        if in_mermaid:
+            if line.strip().startswith("```"):
+                st_mermaid("\n".join(mermaid_lines))
+                in_mermaid = False
+            else:
+                mermaid_lines.append(line)
+            continue
+
+        buffer.append(line)
+
+    flush_buffer()
+
 
 def render_plan_view():
     st.markdown('<p class="section-title">📄 Drafting Canvas</p>', unsafe_allow_html=True)
-
-    # 1. 표시할 내용(content) 준비
-    if st.session_state.state['plan']['output_path']:
-        md_path = Path(st.session_state.state['plan']['output_path'])
-        if md_path.exists():
-            content = md_path.read_text(encoding="utf-8")
+    
+    with st.container(height=700, border=True):
+        # 1. 표시할 내용(content) 준비
+        if st.session_state.state['plan']['output_path']:
+            md_path = Path(st.session_state.state['plan']['output_path'])
+            if md_path.exists():
+                content = md_path.read_text(encoding="utf-8")
+                st.session_state["heading_line_map"] = extract_heading_line_map(content)
+            else:
+                content = "기획서를 불러오는 중 오류가 발생했습니다."
+            st_markdown(content)
         else:
-            content = "기획서를 불러오는 중 오류가 발생했습니다."
-    else:
-        # 기획서가 없을 때의 placeholder
-        content = """
-<div style="text-align: center; padding-top: 100px; color: #9ca3af;">
-    <p style="font-size: 3rem;">📄</p>
-    <p>기획서 초안이 이곳에 나타납니다.</p>
-</div>
-"""
+            # 기획서가 없을 때의 placeholder
+            content = """
+    <div style="text-align: center; padding-top: 100px; color: #9ca3af;">
+        <p style="font-size: 3rem;">📄</p>
+        <p>기획서 초안이 이곳에 나타납니다.</p>
+    </div>
+    """
 
-    # 2. HTML 래퍼와 마크다운 내용을 하나로 합쳐서 한 번에 출력!
-    # f-string 안에서 {content} 앞뒤로 줄바꿈(\n)을 꼭 넣어주어야 마크다운이 파싱됩니다.
-    st.markdown(f"""
-        <div class="canvas-container">
-            
-{content}  </div>
-""", unsafe_allow_html=True)
+        # 2. HTML 래퍼와 마크다운 내용을 하나로 합쳐서 한 번에 출력!
+        # f-string 안에서 {content} 앞뒤로 줄바꿈(\n)을 꼭 넣어주어야 마크다운이 파싱됩니다.
+            st.markdown(f"""
+            <div class="canvas-container">
+                
+    {content}  </div>
+    """, unsafe_allow_html=True)

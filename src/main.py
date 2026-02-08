@@ -3,6 +3,8 @@ from graph.supervisor_graph import supervisor_app
 from langchain_core.messages import HumanMessage, AIMessage
 from front.ui_components import init_page, render_question_view, render_plan_view
 
+# root에서 uv run streamlit run src/main.py 로 실행
+
 init_page()
 
 # 초기 상태 생성 함수
@@ -34,12 +36,23 @@ def create_initial_state():
             "reason": "",
             "pending_request": None,
             "request_type": "text",
+            "edit_request": {
+                'target_section_id': None,
+                'require_edit': False,
+                "instruction": "",
+                "granularity": "",
+                "edit_range_start": 0,
+            }
         },
     }
 
 # 세션 상태 초기화
 if "state" not in st.session_state:
     st.session_state.state = supervisor_app.invoke(create_initial_state())
+    st.session_state.phase = 'Waiting User Input'
+
+if st.session_state.state['supervision']['last_decision'] == 'Refresh':
+    st.session_state.phase = 'planning'
 
 # 좌측 Sidebar (자료 영역)
 with st.sidebar:
@@ -89,8 +102,11 @@ with right_col:
                     with st.chat_message("assistant"):
                         st.markdown(msg.content)
 
+
+        def disable_chat():
+            st.session_state.phase = 'User Input'
         # 사용자 입력
-        user_input = st.chat_input("사용자 입력")
+        user_input = st.chat_input("사용자 입력", disabled=st.session_state.phase != 'Waiting User Input', on_submit=disable_chat)
         if user_input:
             st.session_state.state["user_response"] = user_input
 
@@ -105,6 +121,22 @@ with right_col:
             
             # 그래프 실행
             st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
+            st.rerun()
+
+        if st.session_state.phase == 'form_response':
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.markdown("⏳ 답변 분석 중...")
+            st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
+            st.rerun()
+        elif st.session_state.phase == 'planning':
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.markdown("⏳ 기획서 작성 중...")
+            st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
             st.rerun()
 
     # 질문지 입력이 필요한 경우
@@ -113,7 +145,3 @@ with right_col:
         
         with st.container(height=700, border=True):
             render_question_view(st.session_state.state['input_request'])
-
-if st.session_state.state['supervision']['last_decision'] == 'Refresh':
-    st.session_state.state = supervisor_app.invoke(st.session_state.state)
-    st.rerun()
