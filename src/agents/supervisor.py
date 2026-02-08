@@ -1,7 +1,7 @@
 from state.base import GlobalState
 from models.llm import get_llm
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from prompts.supervisor_prompt import ROUTING_PROMPT
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
+from prompts.supervisor_prompt import ROUTING_PROMPT, MESSAGE_SUMMARY_PROMPT, SUPERVISOR_CHAT_PROMPT
 from langchain_core.output_parsers import JsonOutputParser
 
 from agents.plan_core.logger import get_logger, LogLevel
@@ -162,12 +162,32 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                 'last_decision': response_json['next_action'],
                 'current_task': response_json['next_action'],
                 'reason': response_json['reason'],
+                'summary': routing_context,
             }
         }
-        
+
+def summarize_messages(messages: list[BaseMessage]) -> str:
+    if not messages:
+        return ""
+
+    joined_msgs = "대화 내용:\n- " + "\n- ".join([f"{m.type}: {m.content}" for m in messages])
+
+    result = get_llm(max_tokens=5000).invoke([SystemMessage(content=MESSAGE_SUMMARY_PROMPT), HumanMessage(content=joined_msgs)])
+    return result.content.strip()
+
+def prepare_idea_structuring(state: GlobalState) -> GlobalState:
+    # [Fix] 웹 폼 입력(Dict)인 경우 요약 과정을 건너뛰고 그대로 전달
+    if isinstance(state.get('user_response'), dict):
+        return {}
+
+    user_msgs = [m for m in state['messages'] if isinstance(m, HumanMessage) and m.content]
+    user_idea = summarize_messages(user_msgs)
+    return {
+        'user_response': user_idea,
+    }
 
 def ask_user(state: GlobalState) -> GlobalState:
-    # 에이전트가 사용자에게 전달할 내용이 있을 시
+    # 다른 에이전트가 사용자에게 전달할 내용이 있을 시
     if state['supervision']['pending_request']:
         if state['supervision']['request_type'] == 'text':
             return {
@@ -190,9 +210,10 @@ def ask_user(state: GlobalState) -> GlobalState:
                 'input_request': state['supervision']['pending_request'],
                 "awaiting_input": True,
             }
-    # 에이전트가 사용자에게 전달할 내용이 없을 시 (TODO)
+    # 수퍼바이저와 사용자와의 대화시
     else:
-        response = get_llm(max_tokens=1000).invoke(state['messages'])
+        # 현재 상태와 메시지 기록을 바탕으로 생성된 응답을 사용자에게 전달
+        response = get_llm(max_tokens=10000).invoke([SystemMessage(content=SUPERVISOR_CHAT_PROMPT), HumanMessage(content=state['supervision']['summary'])])
         return {
             "messages": [
                 AIMessage(content=response.content)
@@ -212,9 +233,9 @@ def supervisor_router(state: GlobalState) -> str:
 # 4. missing_information
 # 5. known_constraints
 # 6. last_user_input
-# 7. confidence_levels (if provided)
-def summary_state(state: GlobalState):
-    # TODO
+# 7. message_history
+# 8. confidence_levels (if provided)
+def summary_state(state: GlobalState) -> str:
     completed_steps = state['completed_steps']
 
     current_outputs = {}
@@ -225,12 +246,15 @@ def summary_state(state: GlobalState):
             if section.get("is_required_from_user") == False
         ]
     
+    if "plan" in state:
+        current_outputs["planning"] = state["plan"].get("final_markdown", "")
+    
     required_info = [section.get('title') for section in state['idea']['blueprint']]
     
     filled_info = [section.get('title') for section in state['idea']['blueprint'] if section.get('is_required_from_user') == False]
     missing_information = [title for title in required_info if title not in filled_info]
 
-    known_constraints = ...
+    message_history = summarize_messages(state["messages"])
     
     return f'''
         Goal: {state['supervision']['goal']}
@@ -239,9 +263,7 @@ def summary_state(state: GlobalState):
         Current outputs: {current_outputs}
         Required information: {required_info}
         Missing information: {missing_information}
-        Last user input type: {state['supervision']['request_type']}
+        Message history: {message_history}
         Last user input: {state['user_response']}
         '''
-
-        # Known constraints: {known_constraints}
         # Confidence levels: {state['supervision']['confidence_levels']}

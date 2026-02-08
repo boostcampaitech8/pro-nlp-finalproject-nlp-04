@@ -78,7 +78,7 @@ with right_col:
         st.markdown('<p style="font-size: 1.2rem; font-weight: 700; color: #666;">Assistant</p>', unsafe_allow_html=True)
 
         # 채팅창
-        chat_container = st.container(height='stretch', width="stretch", border=True)
+        chat_container = st.container(height=650, width="stretch", border=True)
         with chat_container:
             for msg in st.session_state.state["messages"]:
                 if isinstance(msg, HumanMessage):
