@@ -121,7 +121,6 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     'supervision': {
                         **state['supervision'],
                         'last_decision': 'Refresh',
-                        'request_type': 'text',
                     }
                 }
             

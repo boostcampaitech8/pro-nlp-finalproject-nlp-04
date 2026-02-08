@@ -139,7 +139,8 @@ def render_question_view(questions):
 
     if st.button("✨ 기획서 생성하기"):
         st.session_state.state['user_response'] = idea_answers
-        st.session_state.state = supervisor_app.invoke(st.session_state.state)
+        st.session_state.state['supervision']['request_type'] = 'text'
+        st.session_state.phase = 'form_response'
         st.rerun()
 
 def st_mermaid(code: str):
