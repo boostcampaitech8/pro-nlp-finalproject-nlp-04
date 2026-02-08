@@ -136,33 +136,66 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
 
 def _calculate_range_end(lines: list[str], start_idx: int, granularity: str) -> int:
     """
-    문서 구조(들여쓰기, 공백 등)를 분석하여 range_end를 자동으로 계산합니다.
+    문서 구조(헤더 레벨, 불릿 포인트 등)를 분석하여 range_end를 자동으로 계산합니다.
     """
     if start_idx >= len(lines):
         return start_idx
     
-    # paragraph: 동일하거나 더 높은 들여쓰기 레벨이 나올 때까지
-    if granularity == "paragraph":
-        start_line = lines[start_idx]
-        if not start_line.strip():
-            return start_idx
-            
-        # 기준 들여쓰기 계산
+    start_line = lines[start_idx]
+    
+    # --- Case 1: Heading Block ('#') ---
+    if start_line.lstrip().startswith('#'):
+        # 현재 헤더 레벨 계산 (예: ## -> 2)
+        base_level = len(start_line) - len(start_line.lstrip('#'))
+        
+        for i in range(start_idx + 1, len(lines)):
+            line = lines[i]
+            # 빈 줄은 포함
+            if not line.strip():
+                continue
+                
+            # 다른 헤더를 만났을 때 레벨 비교
+            if line.lstrip().startswith('#'):
+                current_level = len(line) - len(line.lstrip('#'))
+                # 같거나 더 상위(작은 숫자) 레벨의 헤더가 나오면 종료
+                if current_level <= base_level:
+                    return i - 1
+        return len(lines) - 1
+
+    # --- Case 2: List Item Block ('-', '*', '+', '1.') ---
+    # 간단한 불릿 포인트/번호 매기기 확인
+    is_list_item = start_line.lstrip().startswith(('-', '*', '+')) or \
+                   (len(start_line.lstrip()) > 1 and start_line.lstrip()[0].isdigit() and start_line.lstrip()[1] == '.')
+                   
+    if is_list_item:
         base_indent = len(start_line) - len(start_line.lstrip())
         
         for i in range(start_idx + 1, len(lines)):
             line = lines[i]
-            # 빈 줄은 블록에 포함 (중간에 빈 줄 있어도 같은 블록일 수 있음)
+            # 빈 줄은 포함 (리스트 아이템 사이의 간격일 수 있음)
             if not line.strip():
                 continue
                 
             current_indent = len(line) - len(line.lstrip())
             
-            # 기준보다 들여쓰기가 적거나 같으면 블록 종료 (형제 or 부모 노드 도달)
+            # 들여쓰기가 더 적거나 같으면, 새로운 아이템/블록의 시작으로 간주하고 종료
             if current_indent <= base_indent:
-                return i - 1
-                
+                 return i - 1
+                 
         return len(lines) - 1
+
+    # --- Case 3: Paragraph (Text Block) ---
+    # 다음 빈 줄 전까지, 혹은 새로운 헤더/리스트가 나오기 전까지
+    for i in range(start_idx + 1, len(lines)):
+        line = lines[i]
         
-    # 3. Sentence / Default: 한 줄만 선택
-    return start_idx
+        # 1. 빈 줄을 만나면 종료
+        if not line.strip():
+            return i - 1
+            
+        # 2. 헤더나 리스트 아이템을 만나면 종료 (다른 구조의 시작)
+        if line.lstrip().startswith(('#', '-', '*', '+')) or \
+           (len(line.lstrip()) > 1 and line.lstrip()[0].isdigit() and line.lstrip()[1] == '.'):
+            return i - 1
+            
+    return len(lines) - 1
