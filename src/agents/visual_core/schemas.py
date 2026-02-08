@@ -61,7 +61,7 @@ class Decision(BaseModel):
     )
 
     # 짧은 근거(디버깅/평가용)
-    reason: str = Field(default="", max_length=200)
+    reason: str = Field(default="")
 
     # 보수적 운영을 위한 안전장치(선택)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
