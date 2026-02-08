@@ -22,12 +22,19 @@ def supervisor_node(state: GlobalState) -> GlobalState:
     # 사용자 응답이 있는 경우
     if state['awaiting_input'] == True:
         # 기획서 수정 요청인 경우, Edit 호출
-        if state['supervision']['edit_request'] == True:
+        if state['supervision']['edit_request']['require_edit'] == True:
             return {
+                "messages": [
+                    HumanMessage(content=state["user_response"])
+                ],
+                'awaiting_input': False,
                 'supervision': {
                     **state['supervision'],
                     'last_decision': 'RUN_EDIT',
-                    'edit_request': False,
+                    'edit_request': {
+                        **state['supervision']['edit_request'],
+                        'require_edit': False,
+                    },
                 }
             }
         # 채팅 응답인 경우, 해당 내용을 메시지에 추가
@@ -121,6 +128,7 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     'supervision': {
                         **state['supervision'],
                         'last_decision': 'Refresh',
+                        'request_type': 'text',
                     }
                 }
             
@@ -153,6 +161,15 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     **state['supervision'],
                     'last_decision': 'RUN_PLANNING',
                     'current_task': 'planning',
+                }
+            }
+        elif last_decision == 'RUN_EDIT':
+            return {
+                'supervision': {
+                    **state['supervision'],
+                    'last_decision': 'ASK_USER',
+                    'current_task': 'planning',
+                    'pending_request': '기획서 수정이 완료되었습니다. 추가 수정이 필요하신 부분을 알려주세요.',
                 }
             }
     # 사용자 응답과 현재 상태를 파악 후, 분기
@@ -214,12 +231,7 @@ def edit(state: GlobalState) -> GlobalState:
     result = edit_subgraph.invoke(edit_state)
     regenerated_content = result.get('regenerated_content')
     
-    return {
-        'supervision': {
-            **state['supervision'],
-            'last_decision': 'ASK_USER',
-        }
-    }
+    return {}
 
 def ask_user(state: GlobalState) -> GlobalState:
     # 다른 에이전트가 사용자에게 전달할 내용이 있을 시

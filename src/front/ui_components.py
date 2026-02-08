@@ -139,7 +139,6 @@ def render_question_view(questions):
 
     if st.button("✨ 기획서 생성하기"):
         st.session_state.state['user_response'] = idea_answers
-        st.session_state.state['supervision']['request_type'] = 'text'
         st.session_state.phase = 'form_response'
         st.rerun()
 
@@ -264,6 +263,7 @@ def render_heading(level: int, text: str, key: str):
             if st.button("적용", key=f"apply-{key}"):
                 meta = heading_map.get(key)
 
+                st.session_state.state['user_response'] = user_input
                 st.session_state.state['supervision']['edit_request'] = {
                     'require_edit': True,
                     'target_section_id': meta['title'],
@@ -273,11 +273,11 @@ def render_heading(level: int, text: str, key: str):
                 }
 
                 st.session_state["active_heading"] = None
-                st.session_state.state = supervisor_app.invoke(st.session_state.state)
+                st.session_state.phase = 'edit'
                 st.rerun()
 
 
-def _render_text_images_and_headings(text: str):
+def _render_text_images_and_headings(text: str, h1_key_idx: int, h2_key_idx: int):
     lines = text.splitlines()
     buffer = []
 
@@ -289,37 +289,49 @@ def _render_text_images_and_headings(text: str):
     for idx, line in enumerate(lines):
         if line.startswith("# "):
             flush()
-            render_heading(1, line[2:].strip(), f"h1-{idx}")
+            render_heading(1, line[2:].strip(), f"h1-{h1_key_idx}")
+            h1_key_idx += 1
         elif line.startswith("## "):
             flush()
-            render_heading(2, line[3:].strip(), f"h2-{idx}")
+            render_heading(2, line[3:].strip(), f"h2-{h2_key_idx}")
+            h2_key_idx += 1
         else:
             buffer.append(line)
 
     flush()
 
+    return h1_key_idx, h2_key_idx
 
-def st_markdown(markdown_string: str):
+
+def parse_markdown_blocks(markdown_string: str):
     lines = markdown_string.splitlines()
+    blocks = []
+
     buffer = []
     in_mermaid = False
     mermaid_lines = []
 
-    def flush_buffer():
+    def flush_text():
         if buffer:
-            _render_text_images_and_headings("\n".join(buffer))
+            blocks.append({
+                "type": "text",
+                "content": "\n".join(buffer)
+            })
             buffer.clear()
 
     for line in lines:
         if line.strip().startswith("```mermaid"):
-            flush_buffer()
+            flush_text()
             in_mermaid = True
             mermaid_lines.clear()
             continue
 
         if in_mermaid:
             if line.strip().startswith("```"):
-                st_mermaid("\n".join(mermaid_lines))
+                blocks.append({
+                    "type": "mermaid",
+                    "content": "\n".join(mermaid_lines)
+                })
                 in_mermaid = False
             else:
                 mermaid_lines.append(line)
@@ -327,7 +339,20 @@ def st_markdown(markdown_string: str):
 
         buffer.append(line)
 
-    flush_buffer()
+    flush_text()
+    return blocks
+
+# md에서 머메이드와 그 외를 분류 하여 순서대로 저장해두고, 한번에 렌더링
+def st_markdown(markdown_string: str):
+    blocks = parse_markdown_blocks(markdown_string)
+    h1_key_idx = 1
+    h2_key_idx = 1
+
+    for block in blocks:
+        if block["type"] == "mermaid":
+            st_mermaid(block["content"])
+        else:
+            h1_key_idx, h2_key_idx = _render_text_images_and_headings(block["content"], h1_key_idx, h2_key_idx)
 
 
 def render_plan_view():

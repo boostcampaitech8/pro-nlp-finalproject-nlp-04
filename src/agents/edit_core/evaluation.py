@@ -10,7 +10,7 @@ def evaluate_node(state: EditInternalState) -> EditInternalState:
     """
     재생성된 섹션이 유저의 수정 요청을 잘 반영했는지 평가합니다.
     """
-    print(f"[Eval] 섹션 {state['target_section_id']} 평가 중...")
+    print(f"[Eval] 섹션 평가 중...")
     
     current_content = state.get("regenerated_content", "")
     instruction = state.get("instruction", "")

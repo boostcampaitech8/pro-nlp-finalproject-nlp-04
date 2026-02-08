@@ -86,8 +86,8 @@ with center_col:
 
 # 우측: AI Assistant
 with right_col:
-    # 채팅 입력이 필요한 경우
-    if st.session_state.state['supervision']['request_type'] == "text":
+    # 채팅 입력이 필요한 경우 or 로딩 중일 때
+    if st.session_state.state['supervision']['request_type'] == "text" or st.session_state.phase in ['planning', 'form_response', 'edit']:
         st.markdown('<p style="font-size: 1.2rem; font-weight: 700; color: #666;">Assistant</p>', unsafe_allow_html=True)
 
         # 채팅창
@@ -102,10 +102,11 @@ with right_col:
                     with st.chat_message("assistant"):
                         st.markdown(msg.content)
 
-
+        # 채팅 입력시 페이즈를 변경하여 입력창 비활성화
         def disable_chat():
             st.session_state.phase = 'User Input'
-        # 사용자 입력
+
+        # 사용자 입력창
         user_input = st.chat_input("사용자 입력", disabled=st.session_state.phase != 'Waiting User Input', on_submit=disable_chat)
         if user_input:
             st.session_state.state["user_response"] = user_input
@@ -135,6 +136,13 @@ with right_col:
             with chat_container:
                 with st.chat_message("assistant"):
                     st.markdown("⏳ 기획서 작성 중...")
+            st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
+            st.rerun()
+        elif st.session_state.phase == 'edit':
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.markdown("⏳ 기획서 수정 중...")
             st.session_state.state = supervisor_app.invoke(st.session_state.state)
             st.session_state.phase = 'Waiting User Input'
             st.rerun()

@@ -71,7 +71,7 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
         new_section = generate_section_from_blueprint(
             structured_input=structured_input,
             blueprint_item=modified_item,
-            section_index=target_index,
+            section_index=blueprint_index,
             previous_sections=[] 
         )
         
