@@ -127,7 +127,7 @@ def render_question_view(questions):
         selected_option = next(opt for opt in q["options"] if opt.get("label", str(opt)) == selected_label)
         user_extra = None
 
-        if selected_option.get("value") == "user_input":
+        if selected_option.get("value") == "사용자 입력":
             user_extra = st.text_input("직접 입력", key=f"q_{idx}_extra", placeholder="여기에 의견을 적어주세요...")
 
         idea_answers[q["current_section"]] = {
@@ -137,7 +137,7 @@ def render_question_view(questions):
         }
         st.markdown("<br>", unsafe_allow_html=True) # 간격 조절
 
-    if st.button("✨ 기획서 생성하기"):
+    if st.button("✨ 답변 제출하기"):
         st.session_state.state['user_response'] = idea_answers
         st.session_state.phase = 'form_response'
         st.rerun()

@@ -200,7 +200,7 @@ Blueprint 내에 미완성된(`is_required_from_user: true`) 모든 섹션에 �
     { 
       "current_section": "섹션 제목 1", 
       "question": "해당 섹션에 대한 구체적이고 정중한 질문", 
-      "options": [ {"label": "옵션 1 명칭", "value": "설명"}, {"label": "옵션 2 명칭", "value": "설명"}, {"label": "기타", "value": "user_input"} ], 
+      "options": [ {"label": "옵션 1 명칭", "value": "설명"}, {"label": "옵션 2 명칭", "value": "설명"}, {"label": "기타", "value": "사용자 입력"} ], 
       "guide_text": "답변 가이드" 
     }, 
     { 
