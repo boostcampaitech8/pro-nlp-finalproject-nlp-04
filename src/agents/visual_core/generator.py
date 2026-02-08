@@ -97,8 +97,8 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
         
         if img_response.status_code == 200:
             # 파일 저장
-            project_root = Path(__file__).parent.parent.parent.parent
-            artifacts_dir = project_root / "output" / "artifacts"
+            # [Fix] CWD 기준 output/artifacts 사용 (User Request)
+            artifacts_dir = Path("output") / "artifacts"
             artifacts_dir.mkdir(parents=True, exist_ok=True)
             
             filename = f"diagram_{os.urandom(4).hex()}.png"
@@ -107,6 +107,8 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
             with open(file_path, "wb") as f:
                 f.write(img_response.content)
                 
+            # [Fix] output/artifacts 경로 사용 (읽기)
+            # Streamlit에서 이 경로를 읽으려면 추가 설정이 필요할 수 있으나, 우선 사용자 요청대로 경로 일치
             relative_path = f"output/artifacts/{filename}"
             
             if visual_meta:
@@ -178,9 +180,8 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         fig.update_layout(template="plotly_white", title_x=0.5)
 
         # 3. 이미지 저장
-        # 프로젝트 루트 경로 찾기 (src의 상위 디렉토리)
-        project_root = Path(__file__).parent.parent.parent.parent
-        artifacts_dir = project_root / "output" / "artifacts"
+        # [Fix] CWD 기준 output/artifacts 사용 (User Request)
+        artifacts_dir = Path("output") / "artifacts"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
 
         filename = f"chart_{os.urandom(4).hex()}.png"
@@ -189,9 +190,7 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         # kaleido가 설치되어 있어야 함
         fig.write_image(str(file_path))
 
-        # [Fix] 파일 경로를 사용하여 마크다운에 삽입 (User Request)
-        # Streamlit은 실행 파일 경로 기준(Project Root)으로 정적 파일을 서빙 또는 참조해야 함
-        # Markdown 파일은 output/에 있지만, Streamlit 앱은 Root에서 이를 렌더링함
+        # [Fix] 사용자 요청에 따라 output/artifacts 경로 사용 (읽기)
         relative_path = f"output/artifacts/{filename}"
         
         # 4. 메타데이터 업데이트
