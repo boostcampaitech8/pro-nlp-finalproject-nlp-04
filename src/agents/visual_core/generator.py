@@ -71,59 +71,22 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
         "type": d.diagram_type.value
     }
 
-    # [Fix] Mermaid 코드를 이미지로 변환하여 저장 (mermaid.ink 사용)
-    try:
-        import base64
-        import requests
-        import os
-        from pathlib import Path
-        
-        # Mermaid 코드 인코딩
-        # [Fix] 마크다운 코드 블록 제거 (```mermaid ... ```)
-        raw_code = response.content.strip()
-        if raw_code.startswith("```"):
-            raw_code = raw_code.split("```")[1]
-            if raw_code.startswith("mermaid"):
-                raw_code = raw_code[7:]
-        raw_code = raw_code.strip()
-        
-        graph_bytes = raw_code.encode("utf8")
-        base64_bytes = base64.urlsafe_b64encode(graph_bytes)
-        base64_string = base64_bytes.decode("ascii")
-        
-        # 이미지 다운로드
-        url = f"https://mermaid.ink/img/{base64_string}"
-        img_response = requests.get(url)
-        
-        if img_response.status_code == 200:
-            # 파일 저장
-            # [Fix] CWD 기준 output/artifacts 사용 (User Request)
-            artifacts_dir = Path("output") / "artifacts"
-            artifacts_dir.mkdir(parents=True, exist_ok=True)
+    # [Fix] 이미지 생성 로직 제거 -> Raw Mermaid 코드 저장
+    # 마크다운 렌더링 시 Live Rendering (streamlit-mermaid) 사용 예정
+    raw_code = response.content.strip()
+    
+    # 마크다운 코드 블록 정제
+    if raw_code.startswith("```"):
+        raw_code = raw_code.split("```")[1]
+        if raw_code.startswith("mermaid"):
+            raw_code = raw_code[7:]
+    raw_code = raw_code.strip()
             
-            filename = f"diagram_{os.urandom(4).hex()}.png"
-            file_path = artifacts_dir / filename
-            
-            with open(file_path, "wb") as f:
-                f.write(img_response.content)
-                
-            # [Fix] output/artifacts 경로 사용 (읽기)
-            # Streamlit에서 이 경로를 읽으려면 추가 설정이 필요할 수 있으나, 우선 사용자 요청대로 경로 일치
-            relative_path = f"output/artifacts/{filename}"
-            
-            if visual_meta:
-                visual_meta["content"] = f"![{d.diagram_type.value}]({relative_path})"
-                visual_meta["image_path"] = str(file_path)
-                visual_meta["image_url"] = relative_path
-        else:
-            print(f"[VisualGenerator] Mermaid rendering failed: {img_response.status_code}")
-            if visual_meta:
-                visual_meta["content"] = f"```mermaid\n{response.content}\n```"
-
-    except Exception as e:
-        print(f"[VisualGenerator] Diagram image generation error: {e}")
-        if visual_meta:
-            visual_meta["content"] = f"```mermaid\n{response.content}\n```"
+    if visual_meta:
+        # 마크다운 파일에 Mermaid 코드 블록 직접 삽입
+        visual_meta["content"] = f"```mermaid\n{raw_code}\n```"
+        visual_meta["image_path"] = None
+        visual_meta["image_url"] = None
 
     state["visual_meta"] = visual_meta
     return state
@@ -180,8 +143,9 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         fig.update_layout(template="plotly_white", title_x=0.5)
 
         # 3. 이미지 저장
-        # [Fix] CWD 기준 output/artifacts 사용 (User Request)
-        artifacts_dir = Path("output") / "artifacts"
+        # [Fix] Streamlit 정적 파일 서빙을 위해 static 폴더 사용 (src/static)
+        project_root = Path(__file__).parent.parent.parent.parent
+        artifacts_dir = project_root / "src" / "static" / "artifacts"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
 
         filename = f"chart_{os.urandom(4).hex()}.png"
@@ -190,8 +154,8 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         # kaleido가 설치되어 있어야 함
         fig.write_image(str(file_path))
 
-        # [Fix] 사용자 요청에 따라 output/artifacts 경로 사용 (읽기)
-        relative_path = f"output/artifacts/{filename}"
+        # [Fix] Streamlit static serving path (Absolute)
+        relative_path = f"/app/static/artifacts/{filename}"
         
         # 4. 메타데이터 업데이트
         if visual_meta:

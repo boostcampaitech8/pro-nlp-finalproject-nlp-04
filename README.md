@@ -9,105 +9,115 @@ Vibe Planner는 사용자의 아이디어를 구체적인 기획서로 변환해
 Supervisor는 사용자의 입력을 분석하고 적절한 하위 에이전트로 작업을 라우팅하는 중앙 제어 장치입니다.
 
 ```mermaid
-graph TD
-    start((Start)) --> supervisor
-    
-    supervisor[Supervisor Node]
-    router{Router Logic}
-    
-    supervisor --> router
-    
-    router -->|ASK_USER| ask_user[Ask User]
-    router -->|RUN_IDEA_STRUCTURING| prepare_idea[Prepare Idea Structuring]
-    router -->|RUN_PLANNING| plan_phase[Plan Phase]
-    router -->|RUN_RESEARCH| research_phase[Research Phase]
-    
-    ask_user --> user_input((End/User Input))
-    
-    prepare_idea --> idea_graph[[Idea Subgraph]]
-    idea_graph --> supervisor
-    
-    plan_phase[[Plan Subgraph]] --> supervisor
-    
-    research_phase[[Research Subgraph]] --> supervisor
-    
-    style supervisor fill:#f9f,stroke:#333,stroke-width:4px
-    style router fill:#fff,stroke:#333,stroke-dasharray: 5 5
+stateDiagram-v2
+    direction TB
+
+    [*] --> Supervisor
+
+    state Supervisor {
+        [*] --> Router
+        Router --> AskUser: User Input Required
+        Router --> IdeaAgent: Structuring
+        Router --> PlanAgent: Planning
+        Router --> ResearchAgent: Research
+        
+        AskUser --> [*]: Wait for Input
+        
+        note right of Router
+            Decides next action based on
+            current state and user input
+        end note
+    }
+
+    state IdeaAgent {
+        [*] --> Analyzer
+        Analyzer --> Creator
+        Analyzer --> Updater
+        Analyzer --> Questioner
+        
+        Creator --> Questioner
+        Updater --> Questioner
+        Questioner --> Evaluator
+        
+        Evaluator --> Analyzer: REJECTED
+        Evaluator --> [*]: COMPLETE
+    }
+
+    state PlanAgent {
+        [*] --> Initialize
+        Initialize --> GenerateSection
+        GenerateSection --> CheckResearch
+        
+        CheckResearch --> [*]: Needs Research
+        CheckResearch --> ProcessVisual: No Research
+        
+        ProcessVisual --> SaveAndNext
+        SaveAndNext --> [*]: Section Complete
+    }
+
+    state ResearchAgent {
+        [*] --> QueryGen
+        QueryGen --> Search
+        Search --> Analysis: Need Analysis
+        Search --> [*]: Simple Search
+        Analysis --> [*]
+    }
+
+    IdeaAgent --> Supervisor: Result / Status
+    PlanAgent --> Supervisor: Section / Status
+    ResearchAgent --> Supervisor: Information
 ```
 
 ---
 
-## 3. Overall State Transition Diagram
-전체 시스템의 상태 전이와 에이전트 간의 상호작용 흐름도입니다.
+## 3. Interaction Sequence Diagram (Plan & Research Loop)
+Plan Agent와 Research Agent 간의 상호작용 및 데이터 흐름을 상세하게 표현한 시퀀스 다이어그램입니다.
 
 ```mermaid
-graph TD
-    %% Nodes
-    subgraph Supervisor_Layer [Supervisor Layer]
-        S_Node[Supervisor Node]
-        S_Router{Router}
-        S_Ask[Ask User]
+sequenceDiagram
+    participant Idea as Idea Agent
+    participant Sup as Supervisor
+    participant Plan as Plan Agent
+    participant Res as Research Agent
+
+    note over Sup: 사용자 입력 분석
+
+    rect rgb(255, 240, 245)
+        Sup->>Idea: 아이디어 구체화 요청
+        note right of Idea: 아이디어 분석 및 구조화
+        loop 아이디어 발전 과정
+            Idea->>Idea: 4단계 사고 과정 (분석-생성-비판-평가)
+        end
+        Idea->>Sup: 구조화된 아이디어 반환
     end
 
-    subgraph Idea_Agent [Idea Agent]
-        I_Analyzer[Analyzer]
-        I_Creator[Creator]
-        I_Updater[Updater]
-        I_Questioner[Questioner]
-        I_Evaluator[Evaluator]
+    Sup->>Plan: 기획서 작성 요청
+
+    rect rgb(240, 255, 240)
+        note over Plan: 섹션 초안 작성 시도
+        note over Plan: 리서치 필요성 평가
+
+        alt 정보 부족 (리서치 필요)
+            Plan->>Sup: 리서치 요청 신호 전송
+            note right of Sup: 리서치 모드로 전환 감지
+            
+            Sup->>Res: 리서치 작업 실행
+            
+            rect rgb(240, 248, 255)
+                note over Res: 검색어 생성 -> 웹 검색 -> 결과 분석
+                loop 심층 탐색 과정
+                    Res->>Res: 정보 수집 및 검증
+                end
+            end
+            
+            Res->>Sup: 검증된 근거 자료 반환
+            Sup->>Plan: 기획 모드 복귀 (섹션 재작성)
+            
+            note over Plan: 검색 결과를 반영하여 섹션 완성
+        else 정보 충분
+            note over Plan: 섹션 작성 완료
+        end
+        
+        Plan->>Sup: 완성된 섹션 전달
     end
-
-    subgraph Plan_Agent [Plan Agent]
-        P_Init[Initialize]
-        P_Gen[Generate Section]
-        P_Check{Research Check}
-        P_Visual[Process Visual]
-        P_Save[Save & Next]
-    end
-
-    subgraph Research_Agent [Research Agent]
-        R_Query[Query Gen]
-        R_Search[Search]
-        R_Analysis[Analysis]
-    end
-
-    %% Supervisor Flow
-    Start((Start)) --> S_Node
-    S_Node --> S_Router
-    S_Router -->|ASK_USER| S_Ask
-    S_Router -->|RUN_IDEA_STRUCTURING| I_Analyzer
-    S_Router -->|RUN_PLANNING| P_Init
-    S_Router -->|RUN_RESEARCH| R_Query
-
-    %% Idea Flow
-    I_Analyzer --> I_Creator
-    I_Analyzer --> I_Updater
-    I_Analyzer --> I_Questioner
-    I_Creator --> I_Questioner
-    I_Updater --> I_Questioner
-    I_Questioner --> I_Evaluator
-    I_Evaluator -->|REJECTED| I_Analyzer
-    I_Evaluator -->|COMPLETE / WAIT_FOR_USER| S_Node
-
-    %% Plan Flow
-    P_Init --> P_Gen
-    P_Gen --> P_Check
-    P_Check -->|Needs Research| S_Node
-    P_Check -->|No Research| P_Visual
-    P_Visual --> P_Save
-    P_Save -->|Section Complete| S_Node
-
-    %% Research Flow
-    R_Query --> R_Search
-    R_Search --> R_Analysis
-    R_Analysis --> S_Node
-    R_Search -->|No Analysis| S_Node
-
-    S_Ask --> End((End/Wait))
-    
-    %% Styling
-    style S_Node fill:#f9f,stroke:#333,stroke-width:2px
-    style I_Analyzer fill:#bbf,stroke:#333
-    style P_Gen fill:#bfb,stroke:#333
-    style R_Query fill:#fbf,stroke:#333
 ```

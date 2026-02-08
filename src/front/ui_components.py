@@ -3,6 +3,8 @@ from graph.supervisor_graph import supervisor_app
 from pathlib import Path
 
 
+from streamlit_mermaid import st_mermaid
+
 def init_page():
     # 페이지 설정
     st.set_page_config(page_title="Vibe Planner", layout="wide")
@@ -145,6 +147,7 @@ def render_plan_view():
     st.markdown('<p class="section-title">📄 Drafting Canvas</p>', unsafe_allow_html=True)
 
     # 1. 표시할 내용(content) 준비
+    content = ""
     if st.session_state.state['plan']['output_path']:
         md_path = Path(st.session_state.state['plan']['output_path'])
         if md_path.exists():
@@ -160,10 +163,23 @@ def render_plan_view():
 </div>
 """
 
-    # 2. HTML 래퍼와 마크다운 내용을 하나로 합쳐서 한 번에 출력!
-    # f-string 안에서 {content} 앞뒤로 줄바꿈(\n)을 꼭 넣어주어야 마크다운이 파싱됩니다.
-    st.markdown(f"""
-        <div class="canvas-container">
-            
-{content}  </div>
-""", unsafe_allow_html=True)
+    # 2. Scrollable Container for Canvas
+    # Paper-like styling applied to the container's contents via CSS logic or default clean look
+    with st.container(height=700, border=True):
+        
+        # Split content by mermaid blocks
+        # Regex: ```mermaid ... ```
+        import re
+        parts = re.split(r"(```mermaid\n.*?\n```)", content, flags=re.DOTALL)
+        
+        for part in parts:
+            if part.startswith("```mermaid"):
+                # Extract code
+                code = part.replace("```mermaid", "").replace("```", "").strip()
+                if code:
+                    # Render interactive mermaid
+                    st_mermaid(code, height="400px")
+            else:
+                # Render standard markdown
+                if part.strip():
+                    st.markdown(f'<div class="canvas-text-block">{part}</div>', unsafe_allow_html=True)
