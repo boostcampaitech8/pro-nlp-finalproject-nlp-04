@@ -60,20 +60,9 @@ def generate_section_from_blueprint(
     # 유저 프롬프트 생성
     user_prompt = SECTION_GENERATION_USER_PROMPT.format(
         title=blueprint_item.title,
-        user_content=context_hint
+        user_content=context_hint,
+        evidence= evidence
     )
-<<<<<<< HEAD
-=======
-    
-    # 리서치 결과(Evidence) 추가
-    if evidence:
-        evidence_text = "\n".join(evidence)
-        user_prompt += f"\n\n[참고용 리서치 자료] (팩트와 수치를 적극 활용하세요):\n{evidence_text}"
-    
-    # Blueprint 컨텍스트 추가
-    if context_hint:
-        user_prompt += f"\n\n[기존 기획 메모] (반드시 더 상세하게 확장할 것):\n{context_hint}"
->>>>>>> main
     
     messages = [
         SystemMessage(content=system_prompt),
