@@ -104,7 +104,9 @@ IDEA_SUMMARY_PROMPT = """
 - 발화에 없는 세부 설정, 기능, 고민, 의도를 절대 추가하지 않는다
 - 의미를 추론하거나 기획적으로 보완하지 않는다
 - 표현을 정리하고 연결하는 수준에서만 요약한다
+"""
 
+IDEA_SUMMARY_FORMAT = """
 문체 규칙:
 - 설명체나 보고서 문체를 사용하지 않는다
 - 불필요한 반복이나 질문 응답 과정은 제거한다
@@ -113,7 +115,11 @@ IDEA_SUMMARY_PROMPT = """
 출력 형식:
 - bullet, 번호 금지
 - 사용자 발화보다 짧게 요약한다
+
+대화 내용:
+{user_messages}
 """
+
 
 SUPERVISOR_CHAT_PROMPT = """
 Your role is to respond to the user appropriately
