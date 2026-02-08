@@ -229,8 +229,8 @@ def _format_visual_block(visual: "VisualArtifact") -> str:
     }
     icon = icons.get(meta.visual_type, "📌")
     
-    lines.append(f"#### {icon} 시각화: {meta.purpose[:50]}")
-    lines.append("")
+    # lines.append(f"#### {icon} 시각화: {meta.purpose[:50]}")
+    # lines.append("")
     
     # 콘텐츠 또는 placeholder
     if visual.is_placeholder or not meta.content:
@@ -239,9 +239,9 @@ def _format_visual_block(visual: "VisualArtifact") -> str:
         lines.append(meta.content)
     
     
-    lines.append("")
-    lines.append(f"> **시각화 목적**: {meta.purpose}")
-    lines.append(f"> **형식 선택 이유**: {meta.why_this_format}")
+    # lines.append("")
+    # lines.append(f"> **시각화 목적**: {meta.purpose}")
+    # lines.append(f"> **형식 선택 이유**: {meta.why_this_format}")
     if meta.data_source:
         lines.append(f"> **데이터 출처**: {meta.data_source}")
     
