@@ -3,6 +3,8 @@ from graph.supervisor_graph import supervisor_app
 from langchain_core.messages import HumanMessage, AIMessage
 from front.ui_components import init_page, render_question_view, render_plan_view
 
+# root에서 uv run streamlit run src/main.py 로 실행
+
 init_page()
 
 # 초기 상태 생성 함수
@@ -34,6 +36,13 @@ def create_initial_state():
             "reason": "",
             "pending_request": None,
             "request_type": "text",
+            "edit_request": {
+                'target_section_id': None,
+                'require_edit': False,
+                "instruction": "",
+                "granularity": "",
+                "edit_range_start": 0,
+            }
         },
     }
 

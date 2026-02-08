@@ -18,9 +18,19 @@ def supervisor_node(state: GlobalState) -> GlobalState:
             "current_task": state.get('supervision', {}).get('current_task')
         })
     
-    # 사용자 응답이 있으면, 해당 내용을 메시지에 추가
+    # 사용자 응답이 있는 경우
     if state['awaiting_input'] == True:
-        if state['supervision']['request_type'] == 'text':
+        # 기획서 수정 요청인 경우, Edit 호출
+        if state['supervision']['edit_request'] == True:
+            return {
+                'supervision': {
+                    **state['supervision'],
+                    'last_decision': 'RUN_EDIT',
+                    'edit_request': False,
+                }
+            }
+        # 채팅 응답인 경우, 해당 내용을 메시지에 추가
+        elif state['supervision']['request_type'] == 'text':
             return {
                 "messages": [
                     HumanMessage(content=state["user_response"])
@@ -31,6 +41,7 @@ def supervisor_node(state: GlobalState) -> GlobalState:
                     'last_decision': 'supervisor_node',
                 }
             }
+        # 질문지 응답인 경우, Idea Structuring 호출
         elif state['supervision']['request_type'] == 'idea_form':
             return {
                 'awaiting_input': False,
@@ -190,6 +201,25 @@ def prepare_idea_structuring(state: GlobalState) -> GlobalState:
             }
         }
     return {}
+
+def edit(state: GlobalState) -> GlobalState:
+    edit_state = {
+        **state,
+        'target_section_id': state['supervision']['edit_request']['target_section_id'],
+        'instruction': state['supervision']['edit_request']['instruction'],
+        'granularity': state['supervision']['edit_request']['granularity'],
+        'edit_range_start': state['supervision']['edit_request']['edit_range_start'],
+    }
+
+    result = edit_subgraph.invoke(edit_state)
+    regenerated_content = result.get('regenerated_content')
+    
+    return {
+        'supervision': {
+            **state['supervision'],
+            'last_decision': 'ASK_USER',
+        }
+    }
 
 def ask_user(state: GlobalState) -> GlobalState:
     # 다른 에이전트가 사용자에게 전달할 내용이 있을 시
