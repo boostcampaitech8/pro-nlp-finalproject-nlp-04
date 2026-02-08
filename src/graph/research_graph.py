@@ -71,8 +71,8 @@ def run_research_for_plan(state: dict) -> dict:
     queries = research_info.get('queries', [])
     section_context = research_info.get('section_context', '')
     
-    if not queries:
-        # 쿼리가 없으면 리서치 완료로 처리
+    if not queries and not section_context:
+        # 쿼리와 컨텍스트 모두 없으면 리서치 완료로 처리
         state['research'] = {
             **research_info,
             'needs_research': False,

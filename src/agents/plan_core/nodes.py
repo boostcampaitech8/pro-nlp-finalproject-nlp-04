@@ -150,26 +150,32 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
     research_completed = research_state.get("section_context") == blueprint_item.title and not research_state.get("needs_research", True)
     
     if not research_completed:
-        score_result = evaluate_research_need(blueprint_item)
+        score_result = evaluate_research_need(
+            blueprint_item, 
+            planning_style=idea.get("planning_style"),
+            rationale=idea.get("rationale")
+        )
         
         logger.log(LogLevel.INFO, "research_evaluator", 
             f"ResearchNeedScore: {score_result.score:.2f} (needs={score_result.needs_research})", {
                 "section": blueprint_item.title,
                 "score": score_result.score,
-                "needs_research": score_result.needs_research,
-                "suggested_queries": score_result.suggested_queries
+                "needs_research": score_result.needs_research
             })
         
         # 리서치가 필요하면 Supervisor에게 알림 (상태만 반환하고 종료)
         if score_result.needs_research:
+            # [Context Enhancement] Research Goal을 context로 사용
+            research_context = score_result.research_goal if score_result.research_goal else blueprint_item.title
+            
             logger.log(LogLevel.INFO, "research_evaluator", 
-                f"Research 요청: {blueprint_item.title}", {
-                    "queries": score_result.suggested_queries
+                f"Research 요청: {research_context}", {
+                    "queries": []
                 })
             state["research"] = {
                 "needs_research": True,
-                "queries": score_result.suggested_queries,
-                "section_context": blueprint_item.title,
+                "queries": [],
+                "section_context": research_context, # Updated to use goal
                 "evidence_store": research_state.get("evidence_store", [])
             }
             # [Explicit State] 상태 변경 -> Supervisor가 감지
