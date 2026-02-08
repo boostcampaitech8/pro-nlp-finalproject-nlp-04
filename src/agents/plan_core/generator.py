@@ -45,42 +45,24 @@ def generate_section_from_blueprint(
     # 전체 목차
     toc_text = "\n".join([f"{i+1}. {title}" for i, title in enumerate(structured_input.toc)])
     
-    # 스타일에 따른 페르소나 매핑
-    persona_map = {
-        "Business": "시니어 비즈니스 전략가",
-        "Service": "시니어 서비스 기획자",
-        "Technical": "시니어 기술 설계자(Architect)",
-        "Marketing": "시니어 마케팅 전략가",
-        "Operational": "시니어 운영 프로세스 설계자"
-    }
-    persona = persona_map.get(structured_input.planning_style, "시니어 기획 전문가")
+    guideline = blueprint_item.guideline or ""
 
     # 시스템 프롬프트 생성
     system_prompt = SECTION_GENERATION_SYSTEM_PROMPT.format(
         planning_style=structured_input.planning_style,
-        persona=persona,
         rationale=structured_input.rationale,
-        toc_text=toc_text
+        toc_text=toc_text,
+        guideline=guideline
     )
 
-    guideline = blueprint_item.guideline or "자유롭게 작성"
     context_hint = blueprint_item.content or ""
     
     # 유저 프롬프트 생성
     user_prompt = SECTION_GENERATION_USER_PROMPT.format(
-        section_number=section_number,
         title=blueprint_item.title,
-        guideline=guideline
+        user_content=context_hint,
+        evidence= evidence
     )
-    
-    # 리서치 결과(Evidence) 추가
-    if evidence:
-        evidence_text = "\n".join(evidence)
-        user_prompt += f"\n\n[참고용 리서치 자료] (팩트와 수치를 적극 활용하세요):\n{evidence_text}"
-    
-    # Blueprint 컨텍스트 추가
-    if context_hint:
-        user_prompt += f"\n\n[기존 기획 메모] (반드시 더 상세하게 확장할 것):\n{context_hint}"
     
     messages = [
         SystemMessage(content=system_prompt),
