@@ -109,7 +109,7 @@ def render_diagram(state: Dict[str, Any]) -> Dict[str, Any]:
                 
             # [Fix] output/artifacts 경로 사용 (읽기)
             # Streamlit에서 이 경로를 읽으려면 추가 설정이 필요할 수 있으나, 우선 사용자 요청대로 경로 일치
-            relative_path = f"output/artifacts/{filename}"
+            relative_path = "/output/artifacts/" + filename
             
             if visual_meta:
                 visual_meta["content"] = f"![{d.diagram_type.value}]({relative_path})"
@@ -191,7 +191,7 @@ def render_chart(state: Dict[str, Any]) -> Dict[str, Any]:
         fig.write_image(str(file_path))
 
         # [Fix] 사용자 요청에 따라 output/artifacts 경로 사용 (읽기)
-        relative_path = f"output/artifacts/{filename}"
+        relative_path = "/output/artifacts/" + filename
         
         # 4. 메타데이터 업데이트
         if visual_meta:

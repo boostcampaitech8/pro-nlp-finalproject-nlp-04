@@ -135,13 +135,9 @@ def format_plan_header(plan: GeneratedPlan) -> str:
     """기획서 헤더 포맷팅 (제목, 요약, 구분선)"""
     parts = []
     parts.append(f"# {plan.idea.title}")
-    parts.append("")
-    parts.append(f"> {plan.idea.summary}")
-    parts.append("")
-    parts.append(f"*생성 방법: {plan.method}*")
-    parts.append("")
     parts.append("---")
     parts.append("")
+
     return "\n".join(parts)
 
 
@@ -158,22 +154,6 @@ def format_plan_toc(plan: GeneratedPlan) -> str:
     parts.append("")
     parts.append("---")
     parts.append("")
-    
-    # 가이드라인 (선택적)
-    has_guidelines = any(item.guideline for item in plan.toc.items)
-    if has_guidelines:
-        parts.append("## 📋 섹션별 가이드라인")
-        parts.append("")
-        parts.append("> 이 섹션은 각 챕터 작성 시 사용된 가이드라인입니다.")
-        parts.append("")
-        for item in plan.toc.items:
-            if item.guideline:
-                parts.append(f"### {item.section_number}. {item.title}")
-                parts.append("")
-                parts.append(item.guideline)
-                parts.append("")
-        parts.append("---")
-        parts.append("")
         
     return "\n".join(parts)
 
@@ -202,18 +182,6 @@ def _format_visual_block(visual: "VisualArtifact") -> str:
     meta = visual.meta
     lines = []
     
-    # 시각화 타입별 아이콘
-    icons = {
-        "table": "📊",
-        "diagram": "🔀",
-        "image_search": "🔍",
-        "image_gen": "🎨"
-    }
-    icon = icons.get(meta.visual_type, "📌")
-    
-    lines.append(f"#### {icon} 시각화: {meta.purpose[:50]}")
-    lines.append("")
-    
     # 콘텐츠 또는 placeholder
     if visual.is_placeholder or not meta.content:
         lines.append(f"**{meta.placeholder}**")
@@ -222,10 +190,6 @@ def _format_visual_block(visual: "VisualArtifact") -> str:
     
     
     lines.append("")
-    lines.append(f"> **시각화 목적**: {meta.purpose}")
-    lines.append(f"> **형식 선택 이유**: {meta.why_this_format}")
-    if meta.data_source:
-        lines.append(f"> **데이터 출처**: {meta.data_source}")
     
     return "\n".join(lines)
 
