@@ -14,14 +14,18 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
     
     # GlobalState에서 데이터 추출
     blueprint_list = state.get("idea", {}).get("blueprint", [])
-    target_index = state["match_section_index"]
-    
-    if not blueprint_list or target_index >= len(blueprint_list):
-        print(f"[Edit] Error: Blueprint not found or index out of range.")
+    if not blueprint_list:
+        print(f"[Edit] Error: Blueprint not found.")
+        return state
+
+    # [Fix] target의 section index 찾기
+    blueprint_index = _calculate_section_index(state)
+    if blueprint_index >= len(blueprint_list):
+        print(f"[Edit] Error: Blueprint index out of range.")
         return state
 
     # 1. Target Blueprint Item 가져오기
-    target_item_dict = blueprint_list[target_index]
+    target_item_dict = blueprint_list[blueprint_index]
     target_item = BlueprintItem(**target_item_dict)
     
     granularity = state.get("granularity", "section")
@@ -52,7 +56,7 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
         modified_item = BlueprintItem(
             title=target_item.title,
             guideline=injected_guideline,
-            content="" # content를 비워야 Generator가 LLM을 호출함
+            content=""
         )
         
         # StructuredInput 구성
@@ -133,6 +137,31 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
         print(f"[Edit] Error: Invalid granularity or missing range. (Granularity: {granularity})")
         return state
 
+
+def _calculate_section_index(state: EditInternalState) -> int:
+    """
+    state의 target_section_id를 사용하여 Blueprint 리스트에서의 인덱스를 찾습니다.
+    """
+    target_id = state.get("target_section_id")
+    
+    # 1. target_id가 숫자인 경우
+    if str(target_id).isdigit():
+        return int(target_id)
+        
+    toc = state.get("idea", {}).get("toc", [])
+    for idx, item in enumerate(toc):
+        if isinstance(item, str):
+            if item == str(target_id):
+                return idx
+            continue
+
+        sec_num = item.get("section_number") if isinstance(item, dict) else getattr(item, "section_number", None)
+        title = item.get("title") if isinstance(item, dict) else getattr(item, "title", None)
+        
+        if str(sec_num) == str(target_id) or title == str(target_id):
+            return idx
+            
+    return -1
 
 def _calculate_range_end(lines: list[str], start_idx: int, granularity: str) -> int:
     """
