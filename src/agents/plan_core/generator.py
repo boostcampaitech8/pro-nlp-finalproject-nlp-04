@@ -164,7 +164,7 @@ def format_section_content(section: PlanSection, visual: "VisualArtifact" = None
     level = section.section_number.count(".") + 2
     header_prefix = "#" * level
     
-    parts.append(f"{header_prefix} {section.section_number}. {section.title}")
+    parts.append(f"{header_prefix} {section.title}")
     parts.append("")
     parts.append(section.content)
     parts.append("")

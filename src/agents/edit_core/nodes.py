@@ -32,18 +32,16 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     range_end = state.get("edit_range_end")
     
     # content가 존재하고, 범위가 명시된 경우 부분 수정 진행
-    if granularity in ["paragraph", "sentence", "block", "subtree"] and range_start is not None:
+    if granularity in ["paragraph", "sentence", "block"] and range_start is not None:
 
         
         # 현재 컨텐츠 분리 (줄바꿈 기준)
         current_content = target_item.content or ""
         lines = current_content.split('\n')
         
-        # range_end 자동 계산 (제공되지 않은 경우)
-        if range_end is None:
-            # 기본값: range_start와 동일 (한 줄 수정)
-            range_end = range_start
-            print(f"[Edit] range_end 미지정 -> {range_end}로 자동 설정")
+        # range_end 자동 계산
+        range_end = _calculate_range_end(lines, range_start, granularity)
+        print(f"[Edit] range_end 계산: {range_start} ~ {range_end} (Granularity: {granularity})")
             
         print(f"[Edit] 부분 수정 모드: {granularity} (Lines: {range_start}~{range_end})")
         
@@ -134,3 +132,45 @@ def regenerate_section_node(state: EditInternalState) -> EditInternalState:
     print(f"[Edit] 재생성 완료 (Length: {len(new_section.content)})")
     
     return state
+
+
+def _calculate_range_end(lines: list[str], start_idx: int, granularity: str) -> int:
+    """
+    문서 구조(들여쓰기, 공백 등)를 분석하여 range_end를 자동으로 계산합니다.
+    """
+    if start_idx >= len(lines):
+        return start_idx
+        
+    # 1. Paragraph: 다음 빈 줄 전까지
+    if granularity == "paragraph":
+        for i in range(start_idx + 1, len(lines)):
+            if not lines[i].strip():
+                return i - 1
+        return len(lines) - 1
+        
+    # 2. Block: 동일하거나 더 높은 들여쓰기 레벨이 나올 때까지
+    if granularity == "block":
+        start_line = lines[start_idx]
+        if not start_line.strip():
+            return start_idx
+            
+        # 기준 들여쓰기 계산
+        base_indent = len(start_line) - len(start_line.lstrip())
+        
+        for i in range(start_idx + 1, len(lines)):
+            line = lines[i]
+            # 빈 줄은 블록에 포함 (중간에 빈 줄 있어도 같은 블록일 수 있음)
+            if not line.strip():
+                continue
+                
+            current_indent = len(line) - len(line.lstrip())
+            
+            # 기준보다 들여쓰기가 적거나 같으면 블록 종료 (형제 or 부모 노드 도달)
+            # 단, block 타입은 형제 노드 전까지 잡아주는게 일반적
+            if current_indent <= base_indent:
+                return i - 1
+                
+        return len(lines) - 1
+        
+    # 3. Sentence / Default: 한 줄만 선택
+    return start_idx
