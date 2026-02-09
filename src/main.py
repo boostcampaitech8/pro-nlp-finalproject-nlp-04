@@ -1,33 +1,155 @@
-from state.base import GlobalState
+import streamlit as st
 from graph.supervisor_graph import supervisor_app
+from langchain_core.messages import HumanMessage, AIMessage
+from front.ui_components import init_page, render_question_view, render_plan_view
 
+# root에서 uv run streamlit run src/main.py 로 실행
 
-# 테스트
-initial_state = {
-    "messages": [],
-    "awaiting_input": False,
-    "input_request": None,
-    "user_response": None,
-    "current_task": None,
-    "idea": {
-        "planning_style": "",
-        "rationale": "",
-        "toc": [],
-    },
-    "supervision": {
-        "stage": "init",
-        "user_intent": "",
-        "last_decision": "",
-    },
-}
+init_page()
 
-while True:
-    state = supervisor_app.invoke(initial_state)
-    print(state)
+# 초기 상태 생성 함수
+def create_initial_state():
+    return {
+        "messages": [],
+        "awaiting_input": False,
+        "input_request": None,
+        "user_response": None,
+        "completed_steps": [],
+        "idea": {
+            "planning_style": "",
+            "rationale": "",
+            "toc": [],
+            "blueprint": [],
+            "last_decision": "",
+            "messages": "",
+        },
+        "plan": {
+            "sections": [],
+            "final_markdown": "",
+            "output_path": "",
+            "visual_artifacts": {},
+        },
+        "supervision": {
+            "goal": "Produce a high-quality vibe-based planning document",
+            "last_decision": "",
+            "current_task": None,
+            "reason": "",
+            "pending_request": None,
+            "request_type": "text",
+            "edit_request": {
+                'target_section_id': None,
+                'require_edit': False,
+                "instruction": "",
+                "granularity": "",
+                "edit_range_start": 0,
+            }
+        },
+    }
+
+# 세션 상태 초기화
+if "state" not in st.session_state:
+    st.session_state.state = supervisor_app.invoke(create_initial_state())
+    st.session_state.phase = 'Waiting User Input'
+
+if st.session_state.state['supervision']['last_decision'] == 'Refresh':
+    st.session_state.phase = 'planning'
+
+# 좌측 Sidebar (자료 영역)
+with st.sidebar:
+    st.title("Vibe Planner")
+    st.markdown("---")
+
+    st.subheader("📁 Research Materials")
     
-    if state.get("awaiting_input"):
-        print(state["input_request"])
-        user_input = input("> ")
+    # [Fix] 섹션별 리서치 자료 동적 표시
+    plan_data = st.session_state.state.get("plan", {})
+    sections = plan_data.get("sections", [])
+    
+    has_evidence = False
+    for sec in sections:
+        evidence = sec.get("evidence", [])
+        if evidence:
+            has_evidence = True
+            with st.expander(f"{sec.get('section_number', '')}. {sec.get('title', 'Untitled')}", expanded=False):
+                for item in evidence:
+                    st.markdown(f"- {item}", unsafe_allow_html=True)
 
-        state["user_response"] = user_input
-        initial_state = state
+    if not has_evidence:
+        st.info("생성된 리서치 자료가 없습니다.")
+
+# 메인 3단 레이아웃
+center_col, right_col = st.columns([5.0, 2.8], gap="large")
+
+# 중앙: 문서 에디터
+with center_col:
+    render_plan_view()
+
+# 우측: AI Assistant
+with right_col:
+    # 채팅 입력이 필요한 경우 or 로딩 중일 때
+    if st.session_state.state['supervision']['request_type'] == "text" or st.session_state.phase in ['planning', 'form_response', 'edit']:
+        st.markdown('<p style="font-size: 1.2rem; font-weight: 700; color: #666;">Assistant</p>', unsafe_allow_html=True)
+
+        # 채팅창
+        chat_container = st.container(height=650, width="stretch", border=True)
+        with chat_container:
+            for msg in st.session_state.state["messages"]:
+                if isinstance(msg, HumanMessage):
+                    with st.chat_message("user"):
+                        st.markdown(msg.content)
+
+                elif isinstance(msg, AIMessage):
+                    with st.chat_message("assistant"):
+                        st.markdown(msg.content)
+
+        # 채팅 입력시 페이즈를 변경하여 입력창 비활성화
+        def disable_chat():
+            st.session_state.phase = 'User Input'
+
+        # 사용자 입력창
+        user_input = st.chat_input("사용자 입력", disabled=st.session_state.phase != 'Waiting User Input', on_submit=disable_chat)
+        if user_input:
+            st.session_state.state["user_response"] = user_input
+
+            # 사용자 입력 채팅창 반영
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(user_input)
+
+                # 로딩 표시
+                with st.chat_message("assistant"):
+                    st.markdown("⏳ 생각 중...")
+            
+            # 그래프 실행
+            st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
+            st.rerun()
+
+        if st.session_state.phase == 'form_response':
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.markdown("⏳ 답변 분석 중...")
+            st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
+            st.rerun()
+        elif st.session_state.phase == 'planning':
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.markdown("⏳ 기획서 작성 중...")
+            st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
+            st.rerun()
+        elif st.session_state.phase == 'edit':
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.markdown("⏳ 기획서 수정 중...")
+            st.session_state.state = supervisor_app.invoke(st.session_state.state)
+            st.session_state.phase = 'Waiting User Input'
+            st.rerun()
+
+    # 질문지 입력이 필요한 경우
+    elif st.session_state.state['supervision']['request_type'] == "idea_form":
+        st.markdown('<p class="section-title">💡 Vibe Questions</p>', unsafe_allow_html=True)
+        
+        with st.container(height=700, border=True):
+            render_question_view(st.session_state.state['input_request'])

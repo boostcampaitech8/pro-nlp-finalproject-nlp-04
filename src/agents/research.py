@@ -16,6 +16,7 @@ from config.config import UPSTAGE_API_KEY
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import PointStruct, Document
+from config.config import API_KEY, TAVILY_API_KEY
 
 # MODEL_NAME = "gemini-3-pro-preview"
 MODEL_NAME_PRO = "solar-pro2"
@@ -136,7 +137,8 @@ def search_with_tavily(state: ResearchState):
     search = TavilySearch(
         max_results=5,
         search_depth="basic",
-        include_raw_content=True
+        include_raw_content=True,
+        tavily_api_key=TAVILY_API_KEY
     )
     search_results = []
 
@@ -274,7 +276,7 @@ def analysis_search_results(state: ResearchState):
         ("human", "{question}"),
     ])
 
-    llm = ChatUpstage(model=MODEL_NAME_PRO, temperature=0.1, api_key=UPSTAGE_API_KEY)
+    llm = ChatUpstage(model=MODEL_NAME_PRO, temperature=0.1, api_key=API_KEY)
 
     query_chain = prompt | llm
     analysis_result = query_chain.invoke({"question": question, "summary": summary})

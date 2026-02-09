@@ -1,83 +1,149 @@
-# Graph Module
+# Graph 모듈 문서
 
-이 디렉토리는 LangGraph 기반의 워크플로우 그래프들을 정의합니다.
-
-## Plan Pipeline Graph (`plan_graph.py`)
-
-기획서 생성 에이전트의 핵심 실행 흐름을 정의합니다.
-
-### 1. High-Level Flow
-
-전체 파이프라인의 핵심 흐름입니다. Global State를 기반으로 기획서를 생성하고 평가합니다.
-
-```mermaid
-flowchart TD
-    Start([Start]) --> Generate["Generate (Plan Generate)"]
-    Generate --> Evaluate["Evaluate (Plan Evaluate)"]
-    Evaluate --> CheckEval{"Eval Router<br/>(Pass/Retry)"}
-    CheckEval -->|Retry| Generate
-    CheckEval -->|Pass| End([End])
-```
-
-### 2. Input / Output
-
-| 구분 | 설명 | 데이터 구조 |
-|------|------|-------------|
-| **Input** | 기획서 작성을 위한 기본 정보 및 Blueprint<br>*(파이프라인 내부에서 `structured_input`으로 변환)* | `state.get("idea")`<br>`state.get("blueprint")` |
-| **Output** | 생성된 기획서 섹션, 시각화 결과물, 마크다운 파일 경로 | `state["plan_output"]` |
-
-#### Input Detail
-- **idea**: 기획 의도(`rationale`), 기획 스타일(`planning_style`), 목차(`toc`) 등의 정보
-- **blueprint**: 각 섹션별 작성 가이드라인 및 참조 정보
-
-#### Output Detail
-- **sections**: 생성된 기획서의 각 섹션 내용
-- **visual_artifacts**: 표, 다이어그램 등 생성된 시각화 자료
-- **final_markdown**: 최종 조합된 마크다운 텍스트
-- **output_path**: 저장된 파일 경로
+> **최종 업데이트**: 2026-02-08  
+> **작성자**: 디버깅 세션 중 자동 생성
 
 ---
 
-### 3. Detailed Workflow
+## 개요
 
-`Generate` 노드 내부에서 실행되는 상세 파이프라인(Pipeline Graph)입니다.
+이 폴더는 LangGraph 기반 상태 그래프 정의를 포함합니다. 각 서브그래프는 특정 에이전트의 워크플로우를 정의합니다.
 
-```mermaid
-flowchart TD
-    subgraph Pipeline["Generate Pipeline (Detailed Workflow)"]
-        direction TB
-        P_Start([Start]) --> Parse["Parse Input"]
-        Parse --> GenSec["Generate Section"]
-        
-        %% Visual Sub-process
-        GenSec --> VisDecide["Visual Decide"]
-        VisDecide --> CheckVis{"Needs Visual?"}
-        CheckVis -- Yes --> VisGen["Visual Generate"]
-        VisGen --> VisVal["Visual Validate"]
-        VisVal --> CheckVisRetry{"Validation<br/>OK?"}
-        CheckVisRetry -- Retry --> VisGen
-        CheckVisRetry -- Pass --> VisFin["Visual Finalize"]
-        VisFin --> NextSec["Increment Section Index"]
-        CheckVis -- No --> NextSec
-        
-        %% Loop Control
-        NextSec --> CheckNext{"Has Next Section?"}
-        CheckNext -- Yes --> GenSec
-        CheckNext -- No --> Compose["Compose Output"]
-        Compose --> Save["Save Output"]
-        Save --> P_End([End])
-    end
+---
+
+## 파일 구조
+
+| 파일 | 담당 에이전트 | 협업 필요 |
+|------|---------------|-----------|
+| `supervisor_graph.py` | Supervisor | ⚠️ **협업 필수** |
+| `research_graph.py` | Research | ⚠️ **협업 필수** |
+| `idea_graph.py` | Idea | ⚠️ **협업 필수** |
+| `plan_graph.py` | Plan | 개인 작업 |
+| `edit_graph.py` | Edit | 개인 작업 |
+| `visual_graph.py` | Visual | 개인 작업 |
+
+---
+
+## Supervisor Graph (`supervisor_graph.py`)
+
+### 역할
+모든 에이전트를 조율하는 최상위 그래프입니다.
+
+### 주요 변경 사항 (2026-02-08)
+
+#### 1. Research 노드 추가
+```python
+# 기존 (BEFORE)
+supervisor_graph.add_node("idea_phase", idea_subgraph)
+supervisor_graph.add_node("plan_phase", plan_subgraph)
+
+# 변경 후 (AFTER)
+supervisor_graph.add_node("idea_phase", idea_subgraph)
+supervisor_graph.add_node("plan_phase", plan_subgraph)
+supervisor_graph.add_node("research_phase", run_research_for_plan)  # 신규
 ```
 
-### Components Description
+#### 2. 라우팅 경로 추가
+```python
+supervisor_router → {
+    "ASK_USER": "ask_user",
+    "RUN_IDEA_STRUCTURING": "idea_phase",
+    "RUN_PLANNING": "plan_phase",
+    "RUN_RESEARCH": "research_phase",  # 신규
+    "supervisor_node": "supervisor"
+}
+```
 
-#### Global Graph Elements
-- **Generate**: 상세 파이프라인(`Plan Pipeline`)을 호출하여 기획서를 생성합니다.
-- **Evaluate**: 생성된 결과물의 품질을 평가합니다. (현재는 기본 통과 로직)
-- **Eval Router**: 평가 결과에 따라 `pass` 또는 `retry`를 결정합니다.
+### 흐름도
 
-#### Pipeline Elements
-- **Parse Input**: Global State의 입력을 파이프라인 전용 State로 변환합니다.
-- **Generate Section**: Blueprint에 정의된 가이드라인을 따라 섹션을 작성합니다.
-- **Visual Process**: 섹션 내용에 적합한 시각화(표, 다이어그램 등)를 결정하고 생성합니다.
-- **Compose & Save**: 모든 섹션을 조합하여 마크다운 파일로 저장합니다.
+```mermaid
+graph TD
+    A[supervisor] -->|ASK_USER| B[ask_user]
+    A -->|RUN_IDEA_STRUCTURING| C[idea_phase]
+    A -->|RUN_PLANNING| D[plan_phase]
+    A -->|RUN_RESEARCH| E[research_phase]
+    
+    B --> F[END]
+    C --> A
+    D --> A
+    E --> A
+```
+
+---
+
+## Research Graph (`research_graph.py`)
+
+### 역할
+Tavily 검색을 통해 외부 정보를 수집하고 분석합니다.
+
+### 주요 구성 요소
+
+#### 서브그래프 (`research_subgraph`)
+```mermaid
+graph LR
+    A[query_gen] --> B[search]
+    B -->|is_analysis_need=True| C[analysis]
+    B -->|is_analysis_need=False| D[END]
+    C --> D
+```
+
+| 노드 | 함수 | 역할 |
+|------|------|------|
+| `query_gen` | `generate_queries()` | 검색 쿼리 생성 |
+| `search` | `search_with_tavily()` | Tavily 검색 실행 |
+| `analysis` | `analysis_search_results()` | 검색 결과 분석 |
+
+#### 래퍼 함수 (`run_research_for_plan`)
+
+Plan Agent와 연동하기 위한 **GlobalState ↔ ResearchState 변환** 래퍼입니다.
+
+**입력 (GlobalState):**
+```python
+state['research'] = {
+    'queries': ['쿼리1', '쿼리2', ...],
+    'section_context': '1. 서비스 개요',
+    'needs_research': True
+}
+```
+
+**출력 (GlobalState):**
+```python
+state['research'] = {
+    'queries': [...],
+    'section_context': '...',
+    'needs_research': False,  # 변경됨
+    'evidence_store': ['검색결과1', '검색결과2', ...],  # 추가됨
+    'analysis_result': '분석 결과 텍스트'  # 추가됨
+}
+```
+
+---
+
+## 연동 시 주의사항
+
+### Plan → Research 연동
+
+1. **Plan Agent**가 `needs_research: True`를 설정하면
+2. **Supervisor**가 `RUN_RESEARCH`로 라우팅
+3. **Research Agent**가 검색/분석 수행
+4. 결과가 `state['research']['evidence_store']`에 저장
+5. **Plan Agent**가 다시 호출되어 리서치 결과를 프롬프트에 포함
+
+### GlobalState 필드 의존성
+
+| 필드 | 설정 주체 | 사용 주체 |
+|------|-----------|-----------|
+| `research.queries` | Plan Agent | Research Agent |
+| `research.section_context` | Plan Agent | Research Agent |
+| `research.needs_research` | Plan Agent → Research Agent | Supervisor |
+| `research.evidence_store` | Research Agent | Plan Agent |
+| `research.analysis_result` | Research Agent | Plan Agent |
+
+---
+
+## 변경 이력
+
+| 날짜 | 변경 내용 | 관련 파일 |
+|------|-----------|-----------|
+| 2026-02-08 | Research 노드 추가, 라우팅 확장 | `supervisor_graph.py` |
+| 2026-02-08 | `run_research_for_plan` 래퍼 추가 | `research_graph.py` |

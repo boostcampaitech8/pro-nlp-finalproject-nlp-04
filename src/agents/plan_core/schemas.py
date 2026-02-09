@@ -39,6 +39,7 @@ class PlanSection(BaseModel):
     section_number: str
     title: str
     content: str = Field(..., description="마크다운 형식의 섹션 본문")
+    evidence: List[str] = Field(default_factory=list, description="참고한 리서치 자료/근거")
 
 
 class GeneratedPlan(BaseModel):
@@ -55,7 +56,6 @@ class GeneratedPlan(BaseModel):
 
 class BlueprintItem(BaseModel):
     """Blueprint 개별 항목 (외부 에이전트 제공)"""
-    target_id: str = Field(..., description="항목 ID (예: item_1)")
     title: str = Field(..., description="섹션 제목")
     content: Optional[str] = Field(None, description="미리 작성된 내용 (있으면 그대로 사용)")
     guideline: Optional[str] = Field(None, description="LLM 생성 시 참고할 가이드라인")
@@ -66,9 +66,8 @@ class StructuredInput(BaseModel):
     """외부 에이전트가 제공하는 구조화된 입력"""
     planning_style: str = Field(..., description="기획 스타일 (예: Business, Technical)")
     rationale: str = Field(..., description="해당 스타일 선택 이유")
-    system_prompt: Optional[str] = Field(
-        None, 
-        description="전체 기획서의 톤/스타일을 정의하는 시스템 프롬프트 (없으면 기본 프롬프트 사용)"
-    )
     toc: List[str] = Field(default_factory=list, description="목차 리스트")
     blueprint: List[BlueprintItem] = Field(default_factory=list, description="섹션별 청사진")
+
+
+

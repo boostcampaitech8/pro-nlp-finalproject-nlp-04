@@ -4,9 +4,9 @@
 from __future__ import annotations
 from typing import Any, Dict, TypedDict
 
-from models.llm import chat
-from agents.plan.visual.schemas import Decision, VisualMeta
-from agents.plan.logger import get_logger, LogLevel
+from models.llm import get_llm
+from agents.visual_core.schemas import Decision, VisualMeta
+from agents.plan_core.logger import get_logger, LogLevel
 
 
 class RouterState(TypedDict, total=False):
@@ -26,12 +26,15 @@ def decide_node(state: RouterState) -> RouterState:
     text = state.get("section_text") or ""
     title = state.get("section_title") or ""
     
+    
+    # LLM 호출, 라우팅은 빠른 판단을 위해 low 사용
+    chat = get_llm(max_tokens=8192, reasoning_effort="low")
     structured_llm = chat.with_structured_output(Decision)
     
     prompt_text = f"""
     당신은 기획서 작성 도우미의 두뇌 역할을 하는 Router입니다.
     사용자가 작성한 기획서의 '섹션 제목'과 '내용'을 보고, 
-    이 내용을 시각화하기 위해 표(Table), 다이어그램(Diagram), 이미지 검색(Search), 이미지 생성(Gen) 
+    이 내용을 시각화하기 위해 표(Table), 다이어그램(Diagram), 차트(Chart), 이미지 검색(Search), 이미지 생성(Gen) 
     중 어떤 도구가 필요한지 판단하세요.
 
     [입력 정보]
@@ -40,12 +43,15 @@ def decide_node(state: RouterState) -> RouterState:
 
     [판단 기준]
     1. Table: 정형 데이터, 비교, 요금표, 로드맵, 지표 등이 포함되면 True.
-    2. Diagram: 구조, 흐름, 순서, 관계 등이 텍스트로 설명되어 있어 시각화가 좋으면 True.
-    3. Image Search: UI 참고, 레퍼런스, 실제 사례 이미지를 보고 싶어하면 True.
-    4. Image Gen: "그려줘", "생성해줘", "일러스트" 등 없는 이미지를 만들어야 하면 True.
+    2. Diagram: 구조, 흐름, 순서, 관계 등이 텍스트로 설명되어 있어 시각화가 좋으면 True (Mermaid 사용).
+    3. Chart: 수치 데이터의 비중, 시간 흐름, 항목 간 수치 비교 등이 명확하여 시각적 그래프가 필요하면 True (Plotly 사용).
+       - 반드시 chart_type(pie, bar, line, scatter) 중 하나를 선택하세요.
+    4. Image Search: UI 참고, 레퍼런스, 실제 사례 이미지를 보고 싶어하면 True.
+    5. Image Gen: "그려줘", "생성해줘", "일러스트" 등 없는 이미지를 만들어야 하면 True.
 
-    필요한 도구와 그 구체적인 타입(table_type, diagram_type)을 결정하고, 
+    필요한 도구와 그 구체적인 타입(table_type, diagram_type, chart_type)을 결정하고, 
     검색이나 생성이 필요하다면 쿼리/프롬프트도 제안하세요.
+    차트와 표가 동시에 필요해 보인다면, 더 직관적인 'Chart'를 우선적으로 선택하세요.
     """
     
     try:
@@ -53,6 +59,9 @@ def decide_node(state: RouterState) -> RouterState:
     except Exception as e:
         print(f"LLM Error: {e}")
         decision = Decision(reason=f"Error: {str(e)}")
+
+    if decision is None:
+        decision = Decision(reason="LLM returned None")
 
     state["decision"] = decision.model_dump()
     return state
@@ -66,7 +75,7 @@ def generate_visual_meta(state: RouterState) -> RouterState:
     text = state.get("section_text", "")
     title = state.get("section_title", "")
     
-    if not any([decision.needs_table, decision.needs_diagram, 
+    if not any([decision.needs_table, decision.needs_diagram, decision.needs_chart,
                 decision.needs_image_search, decision.needs_image_gen]):
         state["visual_meta"] = None
         return state
@@ -97,6 +106,8 @@ def generate_visual_meta(state: RouterState) -> RouterState:
     """
     
     try:
+        # 메타데이터 생성은 명확성이 중요하므로 medium 사용
+        chat = get_llm(max_tokens=8192, reasoning_effort="medium")
         response = chat.invoke(prompt)
         import json
         content = response.content.strip()
@@ -106,7 +117,16 @@ def generate_visual_meta(state: RouterState) -> RouterState:
                 content = content[4:]
         content = content.strip()
         meta_data = json.loads(content)
-    except:
+        
+        # [Fix] LLM이 리스트를 반환하는 경우 처리
+        if isinstance(meta_data, list):
+            if len(meta_data) > 0 and isinstance(meta_data[0], dict):
+                meta_data = meta_data[0]
+            else:
+                raise ValueError("LLM returned a list without valid dict items")
+                
+    except Exception as e:
+        print(f"[VisualRouter] Meta generation error: {e}")
         meta_data = {
             "purpose": f"{title} 내용을 시각적으로 표현",
             "why_this_format": f"{visual_type} 형식이 이 내용에 적합",
