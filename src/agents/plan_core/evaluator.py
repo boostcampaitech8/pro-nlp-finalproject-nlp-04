@@ -99,12 +99,32 @@ def evaluate_research_need(
             try:
                 # 1. JsonOutputParser 시도 (마크다운 블록 제거 포함)
                 result_dict = parser.parse(content)
+                
+                # [Fix] Pydantic validation error 방지: dict 형태의 값을 string으로 변환
+                # 리서치 가이드라인이나 근거가 JSON 내부 객체로 반환되는 경우 대응
+                for field in ["research_goal", "reasoning"]:
+                    val = result_dict.get(field)
+                    if isinstance(val, dict):
+                        # dict의 모든 value를 합쳐서 하나의 string으로 만듦
+                        result_dict[field] = " ".join([str(v) for v in val.values() if v])
+                    elif val is None:
+                        result_dict[field] = ""
+                
                 return ResearchNeedScore(**result_dict)
             except Exception as parse_error:
                 # 2. 파싱 오류 시 최소한의 복구 시도 (정규식으로 JSON 추출)
                 json_match = re.search(r'\{.*\}', content, re.DOTALL)
                 if json_match:
                     result_dict = json.loads(json_match.group())
+                    
+                    # [Fix] 여기서도 동일한 방어 로직 적용
+                    for field in ["research_goal", "reasoning"]:
+                        val = result_dict.get(field)
+                        if isinstance(val, dict):
+                            result_dict[field] = " ".join([str(v) for v in val.values() if v])
+                        elif val is None:
+                            result_dict[field] = ""
+                            
                     return ResearchNeedScore(**result_dict)
                 raise parse_error
                 
