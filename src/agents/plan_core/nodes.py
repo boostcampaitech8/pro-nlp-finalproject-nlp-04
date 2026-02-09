@@ -457,14 +457,16 @@ def refine_plan_node(state: PlanInternalState) -> PlanInternalState:
     ]
     
     # Context Window가 큰 모델 사용 권장 (Solar Pro or Gemini)
-    chat = get_llm(max_tokens=8192, reasoning_effort="medium") # Gemini Flash or Solar Pro
+    chat = get_llm(max_tokens=16384, reasoning_effort="medium") # Gemini Flash or Solar Pro
     
     try:
         response = chat.invoke(messages)
         refined_markdown = response.content.strip()
         
+        print(f"[Debug] Original: {len(final_markdown)}, Refined: {len(refined_markdown)}")
+        
         # 결과가 너무 짧거나(오류 가능성) 비어있으면 원본 유지
-        if len(refined_markdown) < len(final_markdown) * 0.5:
+        if len(refined_markdown) < len(final_markdown) * 0.3:
             print("[Warning] 정제된 내용이 너무 짧아 원본을 유지합니다.")
         else:
             state["final_markdown"] = refined_markdown

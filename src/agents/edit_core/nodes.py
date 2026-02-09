@@ -154,29 +154,40 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
 def _calculate_section_index(state: EditInternalState) -> int:
     """
     state의 정보를 바탕으로 Blueprint 리스트에서의 인덱스를 찾습니다.
-    (edit_range_start & final_markdown 이용)
+    헤더 카운팅 대신, 현재 커서 위의 가장 가까운 '## ' 제목을 찾아 Blueprint와 매칭합니다.
+    Refinement로 인해 목차나 요약 등 Blueprint에 없는 섹션이 추가될 수 있기 때문입니다.
     """
-
     range_start = state.get("edit_range_start")
     final_markdown = state.get("plan", {}).get("final_markdown", "")
+    blueprint_list = state.get("idea", {}).get("blueprint", [])
     
     if range_start is not None and final_markdown:
         lines = final_markdown.split('\n')
         if range_start < len(lines):
-            # 위로 올라가며 # (Level 1 Header) 개수 세기
-            header_count = 0
             safe_start = max(0, range_start)
             
-            # 0번 라인부터 현재 라인까지 스캔하여 헤더 개수 카운트
-            # (Blueprint 순서는 문서의 섹션 순서와 동일하다고 가정)
-            for i in range(safe_start + 1): # 0 ~ safe_start
+            # 위로 올라가며 가장 가까운 '## ' 헤더 찾기
+            # (Executive Summary 등 Blueprint에 없는 섹션도 있을 수 있음)
+            current_section_title = None
+            for i in range(safe_start, -1, -1):
                 line = lines[i]
-                if line.lstrip().startswith('# ') or line.lstrip() == '#':
-                    header_count += 1
+                stripped = line.lstrip()
+                if stripped.startswith('## '):
+                    current_section_title = stripped[3:].strip() # '## ' 제거
+                    break
             
-            if header_count > 0:
-                # 1번째 섹션 -> 인덱스 0
-                return header_count - 1
+            if current_section_title:
+                # Blueprint 리스트에서 제목 매칭
+                # (완전 일치 또는 포함 관계 확인 - 생성 시 약간 변형될 수 있음)
+                for idx, item in enumerate(blueprint_list):
+                    bp_title = item.get("title", "").strip()
+                    # 1. 완전 일치
+                    if current_section_title == bp_title:
+                        return idx
+                    # 2. 부분 일치 (공백/특수문자 등 무시하고 핵심 단어 포함 여부 등으로 확장 가능)
+                    # 여기서는 간단히 'bp_title in current' or 'current in bp_title'
+                    if bp_title in current_section_title or current_section_title in bp_title:
+                        return idx
             
     return -1
 
