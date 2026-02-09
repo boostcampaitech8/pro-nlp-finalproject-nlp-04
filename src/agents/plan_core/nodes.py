@@ -465,13 +465,10 @@ def refine_plan_node(state: PlanInternalState) -> PlanInternalState:
         
         print(f"[Debug] Original: {len(final_markdown)}, Refined: {len(refined_markdown)}")
         
-        # 결과가 너무 짧거나(오류 가능성) 비어있으면 원본 유지
-        if len(refined_markdown) < len(final_markdown) * 0.3:
-            print("[Warning] 정제된 내용이 너무 짧아 원본을 유지합니다.")
-        else:
-            state["final_markdown"] = refined_markdown
-            print("[Pipeline] 기획서 정제 완료.")
-            
+        
+        state["final_markdown"] = refined_markdown
+        print("[Pipeline] 기획서 정제 완료.")
+        
     except Exception as e:
         print(f"[Error] 기획서 정제 중 오류 발생: {e}")
         # 오류 발생 시 원본 유지
@@ -487,7 +484,15 @@ def save_output_node(state: PlanInternalState) -> PlanInternalState:
     """
     output_path = state.get("output_path")
     if output_path:
-        print(f"[Pipeline] 모든 섹션 저장 완료. 최종 파일: {output_path}")
+        # [Fix] Refinement 여부와 관계없이 항상 최신 Markdown으로 덮어쓰기
+        # (Incremental Update + Final Polish 반영)
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(state["final_markdown"])
+            print(f"[Pipeline] 파일 저장 완료: {output_path}")
+        except Exception as e:
+            print(f"[Error] 파일 저장 실패: {e}")
+            
     else:
         # Fallback (예외 상황)
         print("[Warning] output_path 없음. 전체 저장 시도.")

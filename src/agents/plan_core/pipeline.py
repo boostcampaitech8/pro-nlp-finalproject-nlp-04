@@ -69,8 +69,23 @@ def build_plan_pipeline():
     # 다음 섹션이 있는지 여부는 nodes.py의 increment_index에서 
     # GlobalState.plan_status를 통해 Supervisor에게 전달됨
     g.add_edge("increment_index", "compose_output")
-    g.add_edge("compose_output", "refine_plan") # [New]
-    g.add_edge("refine_plan", "save_output")    # [New]
+    
+    # [Refactor] Refinement는 모든 섹션이 완료(COMPLETED)된 후에만 실행
+    def route_refinement(state: PlanInternalState) -> str:
+        if state.get("plan_status") == "COMPLETED":
+            return "refine"
+        return "save"
+
+    g.add_conditional_edges(
+        "compose_output",
+        route_refinement,
+        {
+            "refine": "refine_plan",
+            "save": "save_output"
+        }
+    )
+    
+    g.add_edge("refine_plan", "save_output")
     g.add_edge("save_output", END)
     
     return g.compile()
