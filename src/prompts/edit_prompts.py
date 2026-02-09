@@ -8,6 +8,11 @@ PARTIAL_EDIT_SYSTEM_PROMPT = """당신은 전문 문서 에디터입니다.
 2. [앞 문맥]과 [뒷 문맥]을 고려하여 글의 흐름이 자연스럽게 이어지도록 하세요.
 3. 오직 **수정된 결과물**만 출력하세요. (설명이나 인사말 제외)
 4. {granularity} 단위의 수정임을 감안하여 분량을 조절하세요.
+
+**문서 구조**
+- Section: 문서의 목차에 해당하는 부분
+- Paragraph: 섹션 내의 문단
+- Sentence: 문단 내의 문장
 """
 
 PARTIAL_EDIT_USER_PROMPT = """
