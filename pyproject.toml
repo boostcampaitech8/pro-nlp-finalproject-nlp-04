@@ -9,6 +9,8 @@ dependencies = [
     "langchain-upstage>=0.7.6",
     "langgraph>=1.0.7",
     "python-dotenv>=1.2.1",
+    "qdrant-client>=1.16.2",
+    "langchain-tavily>=0.2.17",
     "pytest>=9.0.2",
     "plotly>=6.5.2",
     "pandas>=2.2.3",
@@ -22,5 +24,7 @@ dev = [
     "ipykernel>=7.1.0",
     "jupyter>=1.1.1",
     "langchain[google-genai]>=1.2.8",
-    "langchain-tavily>=0.2.17",
+    "markdownify>=1.2.2",
+    "playwright>=1.58.0",
+    "trafilatura>=2.0.0",
 ]
