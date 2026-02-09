@@ -6,6 +6,8 @@ from agents.plan_core.schemas import StructuredInput, BlueprintItem
 from state.edit import EditInternalState
 from prompts.edit_prompts import SECTION_REGENERATION_GUIDELINE_TEMPLATE
 
+from agents.plan import apply_edit_to_plan
+
 def regenerate_node(state: EditInternalState) -> EditInternalState:
     """
     섹션 또는 부분(문단/문장) 재생성 노드
@@ -78,7 +80,12 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
         # 결과 저장
         state["regenerated_content"] = new_section.content
         state["used_guideline"] = injected_guideline
+        state["section_index"] = blueprint_index
         print(f"[Edit] 재생성 완료 (Length: {len(new_section.content)})")
+        
+        # [Persistence] 수정 사항 즉시 반영 및 저장
+        updated_state = apply_edit_to_plan(state, blueprint_index, new_section.content)
+        state["plan"] = updated_state.get("plan") # Update plan in local state
         
         return state
 
@@ -121,15 +128,22 @@ def regenerate_node(state: EditInternalState) -> EditInternalState:
         
         # 결과 재조립
         reassembled_lines = prefix_lines + [new_part] + suffix_lines
-        state["regenerated_content"] = "\n".join(reassembled_lines)
+        final_content = "\n".join(reassembled_lines)
+        
+        state["regenerated_content"] = final_content
         state["used_guideline"] = f"Partial Edit ({granularity}): {state['instruction']}"
         print(f"[Edit] 부분 수정 완료.")
         
+        # [Persistence] 수정 사항 즉시 반영 및 저장
+        updated_state = apply_edit_to_plan(state, blueprint_index, final_content)
+        state["plan"] = updated_state.get("plan") # Update plan in local state
+        
         return {
             **state,
-            "regenerated_content": "\n".join(reassembled_lines),
+            "regenerated_content": final_content,
             "used_guideline": f"Partial Edit ({granularity}): {state['instruction']}",
-            "edit_range_end": safe_end
+            "edit_range_end": safe_end,
+            "section_index": blueprint_index
         }
     
     else:

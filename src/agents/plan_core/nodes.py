@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Dict, Any, List
 from datetime import datetime
 from pathlib import Path
-
+from models.llm import get_llm
 
 
 from agents.plan_core.schemas import (
@@ -433,6 +433,47 @@ def compose_output_node(state: PlanInternalState) -> PlanInternalState:
     markdown = compose_plan_markdown(plan, visual_artifacts)
     state["final_markdown"] = markdown
     
+    return state
+
+
+from prompts.plan_prompts import PLAN_REFINEMENT_SYSTEM_PROMPT
+from langchain_core.messages import SystemMessage, HumanMessage
+
+def refine_plan_node(state: PlanInternalState) -> PlanInternalState:
+    """
+    최종 생성된 마크다운을 검수하고 정제합니다.
+    - 중복 제거, 헤더 구조 정비, 제목/요약 생성
+    """
+    print("[Pipeline] 최종 기획서 정제(Refinement) 중...")
+    
+    final_markdown = state.get("final_markdown", "")
+    if not final_markdown:
+        print("[Warning] 정제할 마크다운 내용이 없습니다.")
+        return state
+        
+    messages = [
+        SystemMessage(content=PLAN_REFINEMENT_SYSTEM_PROMPT),
+        HumanMessage(content=final_markdown)
+    ]
+    
+    # Context Window가 큰 모델 사용 권장 (Solar Pro or Gemini)
+    chat = get_llm(max_tokens=8192, reasoning_effort="medium") # Gemini Flash or Solar Pro
+    
+    try:
+        response = chat.invoke(messages)
+        refined_markdown = response.content.strip()
+        
+        # 결과가 너무 짧거나(오류 가능성) 비어있으면 원본 유지
+        if len(refined_markdown) < len(final_markdown) * 0.5:
+            print("[Warning] 정제된 내용이 너무 짧아 원본을 유지합니다.")
+        else:
+            state["final_markdown"] = refined_markdown
+            print("[Pipeline] 기획서 정제 완료.")
+            
+    except Exception as e:
+        print(f"[Error] 기획서 정제 중 오류 발생: {e}")
+        # 오류 발생 시 원본 유지
+        
     return state
 
 

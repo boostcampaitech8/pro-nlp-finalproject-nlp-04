@@ -13,6 +13,7 @@ from agents.plan_core.nodes import (
     increment_section_index_node,
     route_next_section,
     compose_output_node,
+    refine_plan_node,       # [New]
     save_output_node,
 )
 from agents.plan_core.logger import reset_logger
@@ -31,6 +32,7 @@ def build_plan_pipeline():
     g.add_node("append_section", append_section_node)
     g.add_node("increment_index", increment_section_index_node)
     g.add_node("compose_output", compose_output_node)
+    g.add_node("refine_plan", refine_plan_node)
     g.add_node("save_output", save_output_node)
     
     # Init
@@ -61,13 +63,14 @@ def build_plan_pipeline():
     
     # Route Next Section
     # [Refactor] 내부 루프 제거 -> 섹션 단위 실행 (Incremental Execution)
-    # generate_section -> ... -> increment_index -> compose_output -> save_output -> END
+    # generate_section -> ... -> increment_index -> compose_output -> refine_plan -> save_output -> END
     
     # Route Next Section (Increment 후 종료)
     # 다음 섹션이 있는지 여부는 nodes.py의 increment_index에서 
     # GlobalState.plan_status를 통해 Supervisor에게 전달됨
     g.add_edge("increment_index", "compose_output")
-    g.add_edge("compose_output", "save_output")
+    g.add_edge("compose_output", "refine_plan") # [New]
+    g.add_edge("refine_plan", "save_output")    # [New]
     g.add_edge("save_output", END)
     
     return g.compile()
