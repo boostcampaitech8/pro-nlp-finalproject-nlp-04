@@ -174,8 +174,9 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
                 })
             state["research"] = {
                 "needs_research": True,
-                "queries": [],
-                "section_context": research_context, # Updated to use goal
+                # [Fix] Research Goal을 queries에 포함시켜 Research Agent에게 전달
+                "queries": [research_context], 
+                "section_context": blueprint_item.title, # [Fix] Loop Check용 Identifier
                 "evidence_store": research_state.get("evidence_store", [])
             }
             # [Explicit State] 상태 변경 -> Supervisor가 감지
@@ -239,7 +240,8 @@ def generate_section_node(state: PlanInternalState) -> PlanInternalState:
         evidence_for_prompt.append(f"[분석 요약]\n{analysis_result}")
 
     if evidence_store:
-        for item in evidence_store:
+        # [User Request] 상위 5개만 사용 (Prompt & Sidebar)
+        for item in evidence_store[:5]:
             if isinstance(item, dict):
                 # New struct ({title, url, content})
                 title = item.get("title", "No Title")

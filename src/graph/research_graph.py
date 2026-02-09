@@ -86,11 +86,17 @@ def run_research_for_plan(state: dict) -> dict:
         return state
     
     # ResearchState 형태로 변환하여 서브그래프 실행
-    # - question: 섹션 컨텍스트 (분석 시 참고)
+    # - question: 섹션 컨텍스트 (분석 시 참고) -> [Improvement] 쿼리에 리서치 목표가 있으면 그것을 질문으로 사용
     # - search_queries: Plan Agent가 제안한 쿼리들
     # - is_analysis_need: True (분석 결과도 필요)
+    
+    research_question = section_context
+    if queries and len(queries) > 0:
+        # nodes.py에서 첫 번째 쿼리로 Research Goal을 전달했으므로 이를 질문으로 활용
+        research_question = queries[0]
+        
     research_input = {
-        "question": section_context,
+        "question": research_question,
         "search_queries": queries,
         "is_analysis_need": True
     }
@@ -107,16 +113,22 @@ def run_research_for_plan(state: dict) -> dict:
                 title = item.get('title', 'No Title')
                 url = item.get('url', '')
                 content = item.get('content', '')
+                score = item.get('score', 0.0)
             else:
                 title = getattr(item, 'title', 'No Title')
                 url = getattr(item, 'url', '')
                 content = getattr(item, 'content', '')
+                score = getattr(item, 'score', 0.0)
             
             evidence_list.append({
                 "title": title,
                 "url": url,
-                "content": content
+                "content": content,
+                "score": score
             })
+        
+        # [Fix] 스코어 기준 내림차순 정렬 (상위 결과 우선)
+        evidence_list.sort(key=lambda x: x['score'], reverse=True)
         
         # 분석 결과 추출
         analysis = result.get('analysis_result', '')

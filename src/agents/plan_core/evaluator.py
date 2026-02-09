@@ -84,6 +84,18 @@ def evaluate_research_need(
             response = chat.invoke(formatted_prompt)
             content = response.content if hasattr(response, 'content') else str(response)
             
+            # [Fix] content가 리스트인 경우 처리 (dict인 경우 'text' 키 추출)
+            if isinstance(content, list):
+                extracted = []
+                for part in content:
+                    if isinstance(part, str):
+                        extracted.append(part)
+                    elif isinstance(part, dict) and "text" in part:
+                        extracted.append(part["text"])
+                    else:
+                        extracted.append(str(part))
+                content = "".join(extracted)
+            
             try:
                 # 1. JsonOutputParser 시도 (마크다운 블록 제거 포함)
                 result_dict = parser.parse(content)
