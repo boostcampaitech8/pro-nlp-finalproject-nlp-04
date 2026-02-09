@@ -1,3 +1,4 @@
+import os
 import uuid
 import hashlib
 from datetime import datetime
@@ -11,7 +12,7 @@ from langchain_upstage import ChatUpstage, UpstageEmbeddings
 from langchain_tavily import TavilySearch
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from langchain_community.tools import DuckDuckGoSearchResults
-from config.config import UPSTAGE_API_KEY, QDRANT_URL, QDRANT_API_KEY
+from config.config import UPSTAGE_API_KEY
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import PointStruct, Document
@@ -22,10 +23,16 @@ MODEL_NAME_MINI = "solar-mini"
 COLLECTION_NAME = "open-web-pages"
 STALE_DAYS = 7
 
-qdrant_client = QdrantClient(
-    url=QDRANT_URL, 
-    api_key=QDRANT_API_KEY,
-)
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
+if QDRANT_URL and QDRANT_API_KEY:
+    qdrant_client = QdrantClient(
+        url=QDRANT_URL, 
+        api_key=QDRANT_API_KEY,
+    )
+else:
+    qdrant_client = QdrantClient(path="./qdrant_data")
 
 if not qdrant_client.collection_exists(COLLECTION_NAME):
     qdrant_client.create_collection(
