@@ -1,6 +1,6 @@
-# Vibe Planner: AI-Powered Agentic Writing Assistant
+# DIV(Design In Vibe): AI-Powered Agentic Writing Assistant
 
-**Vibe Planner** is an advanced AI agent system designed to transform abstract user ideas into concrete, comprehensive project plans and documents. Built with **LangGraph** and **Streamlit**, it orchestrates a team of specialized agents—Idea, Plan, Research, and Visual—under a central Supervisor to collaboratively author high-quality content.
+**DIV(Design In Vibe)** is an advanced AI agent system designed to transform abstract user ideas into concrete, comprehensive project plans and documents. Built with **LangGraph** and **Streamlit**, it orchestrates a team of specialized agents—Idea, Plan, Research, and Visual—under a central Supervisor to collaboratively author high-quality content.
 
 ---
 
@@ -122,7 +122,6 @@ Create a `.env` file in the root directory and add your API keys. Refer to `src/
 # .env
 UPSTAGE_API_KEY=your_solar_pro_api_key
 TAVILY_API_KEY=your_tavily_api_key
-GOOGLE_API_KEY=your_gemini_api_key  # If using Google models
 ```
 
 ---
