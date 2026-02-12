@@ -1,4 +1,4 @@
-CREATOR_PROMPT = """
+CREATOR_PROMPT = """ 
 ## Role
 너는 사용자의 파편화된 아이디어를 바탕으로 기획서의 전략적 뼈대(Blueprint)를 설계하는 전문 기획자이다.
 
@@ -96,7 +96,7 @@ CREATOR_PROMPT = """
  }}
 """
 
-UPDATER_PROMPT = """
+UPDATER_PROMPT = """ 
 ## Role
 너는 기획서의 특정 섹션을 정밀하게 업데이트하는 **'Blueprint Refiner'**이다. 
 사용자의 추가 답변을 분석하여, 기존 뼈대의 완성도를 높이고 기술적/비즈니스적 정합성을 맞추는 역할을 수행한다.
@@ -152,7 +152,7 @@ UPDATER_PROMPT = """
   ]
 }}
 """
-QUESTIONER_PROMPT="""
+QUESTIONER_PROMPT=""" 
 ## Role: Strategic Planning Guide
 너는 사용자가 전문적인 기획서를 완성할 수 있도록 이끄는 가이드다. 
 Blueprint 내에 미완성된(`is_required_from_user: true`) 모든 섹션에 대해 날카로운 질문을 던져라.
