@@ -49,19 +49,19 @@ def analyzer_node(state: InternalState):
 
 def creator_node(state: InternalState):
     logger = get_logger()
-    system_msg = SystemMessage(content=CREATOR_PROMPT)
+    system_msg = SystemMessage(content=CREATOR_PROMPT) 
     user_input = state['user_response']
     llm = get_llm(temperature=0.3, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
-    context_info = f"""
-    blueprint: {state['idea'].get('blueprint') or []}
-    """
+    context_info = f""" 
+    blueprint: {state['idea'].get('blueprint') or []} 
+    """ 
 
-    response = llm.invoke([
-        system_msg,
-        HumanMessage(content=f"{context_info}\n\n유저 요청: {user_input}")
-    ])
+    response = llm.invoke([ 
+        system_msg, 
+        HumanMessage(content=f"{context_info}\n\n유저 요청: {user_input}") 
+    ]) 
 
     result = json.loads(response.content)
     
@@ -86,21 +86,21 @@ def creator_node(state: InternalState):
     
 def updater_node(state: InternalState):
     logger = get_logger()
-    system_msg = SystemMessage(content=UPDATER_PROMPT)
-    user_input = state['user_response']
+    system_msg = SystemMessage(content=UPDATER_PROMPT) 
+    user_input = state['user_response'] 
     llm = get_llm(temperature=0.5, max_tokens=5000, reasoning_effort='high').bind(response_format={"type": "json_object"})
     
     # 현재 상황(Context)을 LLM이 알기 쉽게 정리
-    context_info = f"""
-    blueprint: {state['idea'].get('blueprint')}
-    required_data_points : {state.get('required_data_points', '')}
-    target_sections: {state.get('target_sections')}
-    """
+    context_info = f""" 
+    blueprint: {state['idea'].get('blueprint')} 
+    required_data_points : {state.get('required_data_points', '')} 
+    target_sections: {state.get('target_sections')} 
+    """ 
 
-    response = llm.invoke([
-        system_msg,
-        HumanMessage(content=f"{context_info}\n\n유저 요청: {user_input}")
-    ])
+    response = llm.invoke([ 
+        system_msg, 
+        HumanMessage(content=f"{context_info}\n\n유저 요청: {user_input}") 
+    ]) 
 
     result = json.loads(response.content)
     
@@ -121,22 +121,21 @@ def updater_node(state: InternalState):
     }
 
 def questioner_node(state: InternalState):
-    system_msg = SystemMessage(content=QUESTIONER_PROMPT)
+    system_msg = SystemMessage(content=QUESTIONER_PROMPT) 
     llm = get_mini_llm(temperature=0.5, max_tokens=4000).bind(response_format={"type": "json_object"})
 
-    intent = state.get("internal_user_intent")
+    intent = state.get("internal_user_intent") 
     # 의도가 불분명한 경우 (AMBIGUOUS)
-    if intent == "AMBIGUOUS":
+    if intent == "AMBIGUOUS": 
         # AI가 유저에게 다시 물어보는 프롬프트 생성
         response = llm.invoke(f"유저의 입력 '{state['user_input']}'이 모호합니다. 어떤 섹션을 수정하고 싶은지, 혹은 무엇을 도와드리면 될지 친절하게 되물어주세요.")
         return {
-            "idea": {
-                **state["idea"], 
-                "last_decision": "WAIT_FOR_USER", 
-                "messages": response.content
-            }
-        }
-    
+            "idea": { 
+                **state["idea"],  
+                "last_decision": "WAIT_FOR_USER",  
+                "messages": response.content 
+            } 
+        } 
     
     blueprint = state['idea'].get('blueprint')
     not_completed_count = len([s for s in blueprint if s['is_required_from_user']])
