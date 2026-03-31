@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 개발 관련 파일 및 폴더
+.env
+
+# Output and logs of plan agent
+output/
+logs/
+exp/
